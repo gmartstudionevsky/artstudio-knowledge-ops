@@ -1,12 +1,24 @@
 # ARTSTUDIO Control Center Runbook
 
-## 1. Prepare Structure
+## 0. Current Legacy Structure Pass
 
-Run `mainPrepareDriveStructure()` in Apps Script.
+For the current ARTSTUDIO Drive state, run `mainExecuteSafeActions()` before the general preparation pass. The Reorganization Plan already contains accepted rows for creating `01_INBOX` and `03_Object_Data` and for renaming legacy root folders into the new numbering.
+
+This avoids creating empty target folders first and then renaming old populated folders into the same names.
 
 Expected result:
 
-- missing canonical folders are created under ARTSTUDIO;
+- legacy folders are renamed into the approved structure;
+- `01_INBOX` and `03_Object_Data` are created if missing;
+- execution results are written back to Reorganization Plan.
+
+## 1. Prepare Structure
+
+Run `mainPrepareDriveStructure()` in Apps Script after the legacy structure pass.
+
+Expected result:
+
+- any still-missing canonical folders are created under ARTSTUDIO;
 - `98_Project_Methodology` and `99_Setup_Archive` are created inside `00_CONTROL_CENTER`;
 - Tool Run Log receives a preparation entry.
 
@@ -35,7 +47,7 @@ Use these values:
 
 ## 4. Execute Safe Actions
 
-Run `mainExecuteSafeActions()`.
+Run `mainExecuteSafeActions()` again after review if audit creates new executable rows.
 
 The script executes rows when either:
 
@@ -65,7 +77,7 @@ Expected result:
 - control files exist;
 - GitHub policy is reflected in Drive rules;
 - unresolved high-risk rows remain blocked;
-- Tool Run Log has entries for prepare, audit, execution and validation.
+- Tool Run Log has entries for execution, prepare, audit and validation.
 
 ## 6. GitHub Validation
 
