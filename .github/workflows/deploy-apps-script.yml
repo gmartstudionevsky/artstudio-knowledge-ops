@@ -1,0 +1,56 @@
+name: Deploy Apps Script
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run validation only, do not push with clasp"
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps-script/control-center
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install clasp
+        run: npm install -g @google/clasp
+
+      - name: Validate script files
+        run: |
+          test -f control_center_sealing.gs
+          test -f appsscript.json
+          grep -q 'function mainExecuteSafeActions' control_center_sealing.gs
+
+      - name: Configure clasp auth
+        if: ${{ github.event.inputs.dry_run == 'false' }}
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          test -n "$CLASPRC_JSON"
+          printf '%s' "$CLASPRC_JSON" > ~/.clasprc.json
+
+      - name: Configure script id
+        if: ${{ github.event.inputs.dry_run == 'false' && secrets.SCRIPT_ID != '' }}
+        env:
+          SCRIPT_ID: ${{ secrets.SCRIPT_ID }}
+        run: |
+          printf '{"scriptId":"%s","rootDir":"."}\n' "$SCRIPT_ID" > .clasp.json
+
+      - name: Push to Apps Script
+        if: ${{ github.event.inputs.dry_run == 'false' }}
+        run: clasp push --force
