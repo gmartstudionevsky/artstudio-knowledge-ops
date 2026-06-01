@@ -1,0 +1,50 @@
+name: Validate knowledge ops
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check required files
+        run: |
+          set -euo pipefail
+          test -f README.md
+          test -f config/control-center.json
+          test -f config/agents.yml
+          test -f docs/architecture.md
+          test -f docs/runbook.md
+          test -f apps-script/control-center/control_center_sealing.gs
+          test -f apps-script/control-center/appsscript.json
+
+      - name: Validate JSON
+        run: |
+          python -m json.tool config/control-center.json >/tmp/control-center.json
+          python -m json.tool apps-script/control-center/appsscript.json >/tmp/appsscript.json
+
+      - name: Check Apps Script entrypoints
+        run: |
+          set -euo pipefail
+          script=apps-script/control-center/control_center_sealing.gs
+          grep -q 'function mainPrepareDriveStructure' "$script"
+          grep -q 'function mainAuditOnly' "$script"
+          grep -q 'function mainExecuteSafeActions' "$script"
+          grep -q 'function mainValidateStageTwoReadiness' "$script"
+          grep -q 'setTrashed(true)' "$script"
+
+      - name: Check agent spec
+        run: |
+          set -euo pipefail
+          grep -q 'intake-agent' config/agents.yml
+          grep -q 'catalog-agent' config/agents.yml
+          grep -q 'governance-agent' config/agents.yml
+          grep -q 'docs-agent' config/agents.yml
+          grep -q 'qa-agent' config/agents.yml
+          grep -q 'github-ops-agent' config/agents.yml
