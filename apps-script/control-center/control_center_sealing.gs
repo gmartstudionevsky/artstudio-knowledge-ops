@@ -1,28 +1,41 @@
 /**
  * ARTSTUDIO Control Center Sealing Script.
  *
- * Stage 1 production version: safe audit-only scan and reporting.
- * It never deletes, moves, renames, or changes permissions from mainAuditOnly().
+ * Stage 2 version: prepares canonical Drive structure, audits, executes safe
+ * approved actions, and trashes obvious duplicates without permanent deletion.
  */
 
 const CONFIG = {
   artstudioFolderId: '17dKXkxMd_iiBz5AFbKtt7YvuEzo-bfQK',
   controlCenterFolderId: '13riY7cN6DjiYg1k9ey19sdFgva8cP7dp',
-  controlCenterFolderName: '00_CONTROL_CENTER',
-  rootScanEnabled: true,
-  dryRun: true,
-  executeAcceptedActions: false,
-  allowDelete: false,
-  setupArchiveFolderName: '99_Setup_Archive',
-  methodologyFolderName: '98_Project_Methodology',
+  timezone: 'Europe/Moscow',
+  maxScanDepth: 12,
   reorganizationPlanName: 'ARTSTUDIO_Reorganization_Plan',
   toolRunLogName: 'ARTSTUDIO_Tool_Run_Log',
   auditSheetName: 'Drive Audit Snapshot',
-  namingIssuesSheetName: 'Naming Issues',
   duplicateReportSheetName: 'Duplicate Report',
-  validationSheetName: 'Stage 1 Sealing Validation',
-  timezone: 'Europe/Moscow',
-  maxScanDepth: 12,
+  namingIssuesSheetName: 'Naming Issues',
+  validationSheetName: 'Stage 2 Readiness Validation',
+  allowPermanentDelete: false,
+  allowTrashObviousDuplicates: true,
+  autoSafeActionsEnabled: true,
+  rootFolders: [
+    '00_CONTROL_CENTER',
+    '01_INBOX',
+    '02_Brand_Context',
+    '03_Object_Data',
+    '04_Standards_SOP',
+    '05_Official_Sites',
+    '06_OTA',
+    '07_Reviews',
+    '08_Legal_Files',
+    '09_Owner_Investor',
+    '10_Competitors_Market'
+  ],
+  controlCenterSubfolders: [
+    '98_Project_Methodology',
+    '99_Setup_Archive'
+  ],
   canonicalControlFiles: [
     'ARTSTUDIO_Master_Index',
     'ARTSTUDIO_Source_Map',
@@ -43,7 +56,7 @@ const CONFIG = {
     'bootstrap_control_center.gs',
     'control_center_sealing.gs'
   ],
-  methodologyPrefix: 'ARTSTUDIO Base —'
+  methodologyPrefix: 'ARTSTUDIO Base'
 };
 
 const MAIN_HEADERS = [
@@ -58,21 +71,13 @@ const MAIN_HEADERS = [
 const AUDIT_HEADERS = [
   'Snapshot ID', 'Scan time', 'Object ID', 'Object name', 'Object type',
   'MIME type', 'URL', 'Parent ID', 'Parent name', 'Location type',
-  'Is inside ARTSTUDIO', 'Is inside 00_CONTROL_CENTER',
-  'Is root-level project file', 'Created time', 'Modified time', 'Notes'
+  'Created time', 'Modified time', 'Notes'
 ];
 
-const DUPLICATE_HEADERS = [
-  'Snapshot ID', 'Detection time', 'Duplicate object ID', 'Duplicate object name',
-  'Duplicate URL', 'Duplicate location', 'Canonical object ID',
-  'Canonical object URL', 'Compare result', 'Unique content risk',
-  'Recommended action', 'Safe action', 'Status'
-];
-
-const NAMING_HEADERS = [
-  'Snapshot ID', 'Detection time', 'Object ID', 'Object name', 'Object type',
-  'URL', 'Current location', 'Detection rule', 'Problem', 'Suggested name',
-  'Machine recommendation', 'Human decision', 'Status', 'Last checked'
+const FINDING_HEADERS = [
+  'Snapshot ID', 'Detection time', 'Object ID', 'Object name', 'URL',
+  'Location', 'Detection rule', 'Problem', 'Recommended action',
+  'Safe action', 'Risk', 'Compare result', 'Status'
 ];
 
 const VALIDATION_HEADERS = [
@@ -83,334 +88,406 @@ function getConfig() {
   return CONFIG;
 }
 
+function mainPrepareDriveStructure() {
+  validateConfig_();
+  const ctx = buildContext_();
+  const created = [];
+
+  CONFIG.rootFolders.forEach(function(name) {
+    const folder = getOrCreateFolder(ctx.artstudioFolder, name);
+    if (folder.created) created.push(name);
+  });
+
+  CONFIG.controlCenterSubfolders.forEach(function(name) {
+    const folder = getOrCreateFolder(ctx.controlCenterFolder, name);
+    if (folder.created) created.push('00_CONTROL_CENTER/' + name);
+  });
+
+  appendToolRunLog(ctx, {
+    runId: runId_('PREP'),
+    task: 'Prepare canonical Drive structure',
+    output: created.length ? 'Created: ' + created.join(', ') : 'All canonical folders already exist',
+    status: 'completed',
+    reviewRequired: 'no',
+    notes: 'No files were deleted or permission changes made.'
+  });
+
+  return { created: created };
+}
+
 function mainAuditOnly() {
-  ccSealValidateConfig_();
+  validateConfig_();
+  const ctx = buildContext_();
+  const snapshotId = runId_('AUDIT');
+  const scanTime = now_();
+  const records = dedupeRecords_(scanFolderRecursive_(ctx.artstudioFolder, 'ARTSTUDIO', 0));
+  const canonical = findCanonicalControlFiles(records);
+  const findings = buildFindings(records, canonical);
 
-  const startedAt = ccSealNow_();
-  const context = ccSealBuildContext_();
-  const snapshotId = 'SEAL-' + Utilities.formatDate(new Date(), CONFIG.timezone, 'yyyyMMdd-HHmmss');
+  writeDriveAuditSnapshot(ctx.reorganizationSpreadsheet, records, snapshotId, scanTime);
+  writeFindings(ctx.reorganizationSpreadsheet, CONFIG.duplicateReportSheetName, findings.duplicates, snapshotId, scanTime);
+  writeFindings(ctx.reorganizationSpreadsheet, CONFIG.namingIssuesSheetName, findings.naming, snapshotId, scanTime);
+  writeReorganizationPlanRows(ctx.reorganizationSpreadsheet, findings.recommendations, scanTime);
+  writeValidationReport(ctx.reorganizationSpreadsheet, records, findings, canonical);
 
-  const auditRecords = ccSealDedupeRecords_([]
-    .concat(scanArtstudioFolder(context))
-    .concat(scanControlCenterFolder(context))
-    .concat(scanRootProjectFiles(context)));
-  const canonicalFiles = findControlCenterFiles(context, auditRecords);
-  const duplicateFindings = detectDuplicateControlFiles(auditRecords, canonicalFiles);
-  const setupFindings = detectSetupArtifacts(auditRecords);
-  const methodologyFindings = detectMethodologyFiles(auditRecords);
-  const namingFindings = detectNamingIssues(auditRecords);
-  const recommendations = ccSealBuildRecommendations_(
-    duplicateFindings,
-    setupFindings,
-    methodologyFindings,
-    namingFindings
-  );
-
-  writeDriveAuditSnapshot(context.reorganizationSpreadsheet, auditRecords, snapshotId, startedAt);
-  writeDuplicateReport(context.reorganizationSpreadsheet, duplicateFindings, snapshotId, startedAt);
-  writeNamingIssues(context.reorganizationSpreadsheet, namingFindings, snapshotId, startedAt);
-  writeReorganizationPlanRows(context.reorganizationSpreadsheet, recommendations, startedAt);
-  writeValidationReport(context.reorganizationSpreadsheet, {
-    auditRecords: auditRecords,
-    canonicalFiles: canonicalFiles,
-    duplicateFindings: duplicateFindings,
-    setupFindings: setupFindings,
-    methodologyFindings: methodologyFindings,
-    namingFindings: namingFindings,
-    recommendations: recommendations
-  });
-  appendToolRunLog(context, {
+  appendToolRunLog(ctx, {
     runId: snapshotId,
-    startedAt: startedAt,
-    recordsScanned: auditRecords.length,
-    recommendations: recommendations.length,
-    duplicates: duplicateFindings.length,
-    namingIssues: namingFindings.length
+    task: 'Stage 2 audit-only scan',
+    output: 'Scanned ' + records.length + ' objects; prepared ' + findings.recommendations.length + ' recommendations',
+    status: 'completed',
+    reviewRequired: findings.recommendations.length ? 'yes' : 'no',
+    notes: 'Audit-only: no move, rename, trash or permission change executed.'
   });
 
-  Logger.log('Audit-only sealing completed: ' + snapshotId);
+  return { snapshotId: snapshotId, records: records.length, recommendations: findings.recommendations.length };
+}
+
+function mainExecuteSafeActions() {
+  validateConfig_();
+  const ctx = buildContext_();
+  const sheet = ensureSheet_(ctx.reorganizationSpreadsheet, 'Main', MAIN_HEADERS);
+  const headers = getHeaders_(sheet);
+  const rows = sheet.getLastRow() > 1 ? sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues() : [];
+  const results = [];
+
+  rows.forEach(function(row, idx) {
+    const rowNumber = idx + 2;
+    const item = rowToObject_(headers, row);
+    if (!shouldExecuteRow_(item)) return;
+    const result = executePlanRow_(ctx, item);
+    results.push(result);
+    updateExecutionCells_(sheet, headers, rowNumber, result);
+  });
+
+  appendToolRunLog(ctx, {
+    runId: runId_('EXEC'),
+    task: 'Execute safe reorganization actions',
+    output: 'Processed ' + results.length + ' executable rows',
+    status: results.some(function(r) { return r.status === 'failed'; }) ? 'completed with errors' : 'completed',
+    reviewRequired: results.some(function(r) { return r.status === 'blocked'; }) ? 'yes' : 'no',
+    notes: 'Permanent delete is disabled; duplicate removal uses Drive trash only.'
+  });
+
+  return { processed: results.length, results: results };
+}
+
+function mainValidateStageTwoReadiness() {
+  validateConfig_();
+  const ctx = buildContext_();
+  const records = dedupeRecords_(scanFolderRecursive_(ctx.artstudioFolder, 'ARTSTUDIO', 0));
+  const canonical = findCanonicalControlFiles(records);
+  const findings = buildFindings(records, canonical);
+  writeValidationReport(ctx.reorganizationSpreadsheet, records, findings, canonical);
+  appendToolRunLog(ctx, {
+    runId: runId_('VAL'),
+    task: 'Validate Stage 2 readiness',
+    output: 'Validation report refreshed',
+    status: 'completed',
+    reviewRequired: findings.recommendations.length ? 'yes' : 'no',
+    notes: 'Readiness validation only.'
+  });
+}
+
+function getOrCreateFolder(parentFolder, folderName) {
+  const folders = parentFolder.getFoldersByName(folderName);
+  if (folders.hasNext()) return { folder: folders.next(), created: false };
+  return { folder: parentFolder.createFolder(folderName), created: true };
+}
+
+function findCanonicalControlFiles(records) {
+  const canonical = {};
+  records.forEach(function(record) {
+    if (record.parentId === CONFIG.controlCenterFolderId && CONFIG.canonicalControlFiles.indexOf(record.objectName) !== -1) {
+      canonical[record.objectName] = record;
+    }
+  });
+  return canonical;
+}
+
+function buildFindings(records, canonical) {
+  const recommendations = [];
+  const duplicates = [];
+  const naming = [];
+
+  records.forEach(function(record) {
+    if (CONFIG.canonicalControlFiles.indexOf(record.objectName) !== -1 && record.parentId !== CONFIG.controlCenterFolderId) {
+      const c = canonical[record.objectName] || null;
+      const compare = c ? compareDuplicateObjects(record, c) : 'canonical missing';
+      const isObvious = c && compare === 'no unique content detected';
+      const finding = recommendation_(record, {
+        problem: 'Control file duplicate outside 00_CONTROL_CENTER.',
+        recommendedAction: isObvious ? 'trash duplicate' : 'human review duplicate',
+        safeAction: isObvious ? 'trash duplicate' : 'no automated action',
+        targetLocation: 'Drive trash',
+        detectionRule: 'DUPLICATE_CANONICAL_CONTROL_FILE',
+        priority: 'P1',
+        risk: isObvious ? 'low' : 'high',
+        compareResult: compare,
+        uniqueContentRisk: isObvious ? 'none detected' : 'unknown',
+        canonical: c
+      });
+      duplicates.push(finding);
+      recommendations.push(finding);
+    }
+
+    if (CONFIG.setupArtifacts.indexOf(record.objectName) !== -1) {
+      recommendations.push(recommendation_(record, {
+        problem: 'Setup artifact should be archived after bootstrap.',
+        recommendedAction: 'archive setup artifact',
+        safeAction: 'archive setup artifact',
+        targetLocation: '00_CONTROL_CENTER/99_Setup_Archive',
+        detectionRule: 'SETUP_ARTIFACT',
+        priority: 'P2',
+        risk: 'low'
+      }));
+    }
+
+    if (record.objectName.indexOf(CONFIG.methodologyPrefix) === 0) {
+      recommendations.push(recommendation_(record, {
+        problem: 'Methodology artifact should be grouped under control-center methodology.',
+        recommendedAction: 'move methodology file',
+        safeAction: 'move methodology file',
+        targetLocation: '00_CONTROL_CENTER/98_Project_Methodology',
+        detectionRule: 'METHODOLOGY_FILE',
+        priority: 'P2',
+        risk: 'low'
+      }));
+    }
+
+    if (record.objectType === 'folder' && record.parentId === CONFIG.artstudioFolderId) {
+      const target = suggestedFolderName_(record.objectName);
+      if (target && target !== record.objectName) {
+        const finding = recommendation_(record, {
+          problem: 'Folder naming does not match canonical numbering.',
+          recommendedAction: 'rename folder',
+          safeAction: 'rename folder',
+          targetName: target,
+          targetLocation: 'ARTSTUDIO',
+          detectionRule: 'ROOT_FOLDER_NAMING',
+          priority: 'P1',
+          risk: 'medium'
+        });
+        naming.push(finding);
+        recommendations.push(finding);
+      }
+    }
+  });
+
   return {
-    snapshotId: snapshotId,
-    recordsScanned: auditRecords.length,
-    recommendations: recommendations.length,
-    duplicates: duplicateFindings.length,
-    namingIssues: namingFindings.length
+    duplicates: dedupeRecommendations_(duplicates),
+    naming: dedupeRecommendations_(naming),
+    recommendations: dedupeRecommendations_(recommendations)
   };
 }
 
-function mainExecuteAcceptedActions() {
-  if (!CONFIG.executeAcceptedActions) {
-    throw new Error('Execution is disabled. This production version supports audit-only sealing.');
+function compareDuplicateObjects(duplicateRecord, canonicalRecord) {
+  if (!canonicalRecord) return 'canonical missing';
+  if (duplicateRecord.objectId === canonicalRecord.objectId) return 'same object';
+  if (duplicateRecord.mimeType !== canonicalRecord.mimeType) return 'different mime type';
+  if (duplicateRecord.size && canonicalRecord.size && duplicateRecord.size === canonicalRecord.size && duplicateRecord.modifiedTime === canonicalRecord.modifiedTime) {
+    return 'no unique content detected';
   }
-  throw new Error('Execution is intentionally not implemented in the Stage 1 audit-only release.');
+  if (duplicateRecord.modifiedTime === canonicalRecord.modifiedTime) return 'no unique content detected';
+  return 'unique content possible';
 }
 
-function mainValidateStageOneClosure() {
-  ccSealValidateConfig_();
-  const context = ccSealBuildContext_();
-  const auditRecords = ccSealDedupeRecords_([]
-    .concat(scanArtstudioFolder(context))
-    .concat(scanControlCenterFolder(context))
-    .concat(scanRootProjectFiles(context)));
-  const canonicalFiles = findControlCenterFiles(context, auditRecords);
-  const duplicateFindings = detectDuplicateControlFiles(auditRecords, canonicalFiles);
-  const setupFindings = detectSetupArtifacts(auditRecords);
-  const methodologyFindings = detectMethodologyFiles(auditRecords);
-  const namingFindings = detectNamingIssues(auditRecords);
+function recommendation_(record, opts) {
+  return {
+    object: record,
+    canonical: opts.canonical || null,
+    problem: opts.problem,
+    recommendedAction: opts.recommendedAction,
+    targetName: opts.targetName || record.objectName,
+    targetLocation: opts.targetLocation || '',
+    priority: opts.priority || 'P2',
+    risk: opts.risk || 'medium',
+    machineRecommendation: opts.machineRecommendation || opts.problem,
+    detectionRule: opts.detectionRule,
+    compareResult: opts.compareResult || 'not applicable',
+    uniqueContentRisk: opts.uniqueContentRisk || 'low',
+    safeAction: opts.safeAction || 'no automated action'
+  };
+}
 
-  writeValidationReport(context.reorganizationSpreadsheet, {
-    auditRecords: auditRecords,
-    canonicalFiles: canonicalFiles,
-    duplicateFindings: duplicateFindings,
-    setupFindings: setupFindings,
-    methodologyFindings: methodologyFindings,
-    namingFindings: namingFindings,
-    recommendations: []
+function executePlanRow_(ctx, item) {
+  try {
+    const action = normalize_(item['Safe action'] || item['Recommended action']);
+    if (action === 'create folder') return createFolderFromRow_(ctx, item);
+    if (action === 'rename file' || action === 'rename folder') return renameObjectFromRow_(item);
+    if (action === 'move file' || action === 'move folder' || action === 'move methodology file' || action === 'archive setup artifact') return moveObjectFromRow_(ctx, item);
+    if (action === 'trash duplicate') return trashDuplicateFromRow_(item);
+    return result_('blocked', 'No automated handler for action: ' + action);
+  } catch (err) {
+    return result_('failed', err.message);
+  }
+}
+
+function createFolderFromRow_(ctx, item) {
+  const targetName = item['Target name'];
+  const targetLocation = item['Target location'] || 'ARTSTUDIO';
+  if (!targetName) return result_('blocked', 'Target name is required for create folder.');
+  const parent = resolveFolderPath_(ctx, targetLocation);
+  const created = getOrCreateFolder(parent, targetName);
+  return result_('completed', created.created ? 'Created folder: ' + targetName : 'Folder already exists: ' + targetName);
+}
+
+function renameObjectFromRow_(item) {
+  const id = item['Object ID'];
+  const type = normalize_(item['Object type']);
+  const targetName = item['Target name'];
+  if (!id || !targetName) return result_('blocked', 'Object ID and Target name are required for rename.');
+  const object = type === 'folder' ? DriveApp.getFolderById(id) : DriveApp.getFileById(id);
+  object.setName(targetName);
+  return result_('completed', 'Renamed to: ' + targetName);
+}
+
+function moveObjectFromRow_(ctx, item) {
+  const id = item['Object ID'];
+  const type = normalize_(item['Object type']);
+  const targetLocation = item['Target location'];
+  if (!id || !targetLocation) return result_('blocked', 'Object ID and Target location are required for move.');
+  const target = resolveFolderPath_(ctx, targetLocation);
+  const object = type === 'folder' ? DriveApp.getFolderById(id) : DriveApp.getFileById(id);
+  object.moveTo(target);
+  return result_('completed', 'Moved to: ' + targetLocation);
+}
+
+function trashDuplicateFromRow_(item) {
+  if (!CONFIG.allowTrashObviousDuplicates) return result_('blocked', 'Trashing duplicates is disabled.');
+  if (CONFIG.allowPermanentDelete) throw new Error('Permanent delete must remain disabled.');
+  const id = item['Object ID'];
+  const type = normalize_(item['Object type']);
+  const compareResult = normalize_(item['Compare result']);
+  const uniqueRisk = normalize_(item['Unique content risk']);
+  if (!id) return result_('blocked', 'Object ID is required for trash duplicate.');
+  if (type === 'folder' && !isFolderEmpty_(DriveApp.getFolderById(id))) return result_('blocked', 'Folder is not empty; human review required.');
+  if (compareResult !== 'no unique content detected' && uniqueRisk !== 'none detected' && normalize_(item['Human decision']) !== 'accepted') {
+    return result_('blocked', 'Duplicate is not obvious; human review required.');
+  }
+  const object = type === 'folder' ? DriveApp.getFolderById(id) : DriveApp.getFileById(id);
+  object.setTrashed(true);
+  return result_('completed', 'Moved duplicate to Drive trash.');
+}
+
+function shouldExecuteRow_(item) {
+  const status = normalize_(item['Execution status']);
+  if (status === 'completed') return false;
+  const decision = normalize_(item['Human decision']);
+  const risk = normalize_(item['Risk']);
+  const action = normalize_(item['Safe action'] || item['Recommended action']);
+  if (decision === 'rejected' || decision === 'postponed' || decision === 'needs discussion') return false;
+  if (risk === 'high' && decision !== 'accepted') return false;
+  if (decision === 'accepted') return true;
+  return CONFIG.autoSafeActionsEnabled && risk !== 'high' && isAutoSafeAction_(action);
+}
+
+function isAutoSafeAction_(action) {
+  return ['create folder', 'move file', 'move folder', 'rename file', 'rename folder', 'archive setup artifact', 'move methodology file', 'trash duplicate'].indexOf(action) !== -1;
+}
+
+function resolveFolderPath_(ctx, path) {
+  const normalized = String(path || 'ARTSTUDIO').replace(/^ARTSTUDIO\/?/, '').replace(/^00_CONTROL_CENTER\/?/, '00_CONTROL_CENTER/');
+  if (!normalized || normalized === 'ARTSTUDIO') return ctx.artstudioFolder;
+  let current = ctx.artstudioFolder;
+  normalized.split('/').filter(Boolean).forEach(function(part) {
+    if (part === '00_CONTROL_CENTER') current = ctx.controlCenterFolder;
+    else current = getOrCreateFolder(current, part).folder;
   });
-
-  appendToolRunLog(context, {
-    runId: 'VAL-' + Utilities.formatDate(new Date(), CONFIG.timezone, 'yyyyMMdd-HHmmss'),
-    startedAt: ccSealNow_(),
-    recordsScanned: auditRecords.length,
-    recommendations: 0,
-    duplicates: duplicateFindings.length,
-    namingIssues: namingFindings.length,
-    validationOnly: true
-  });
+  return current;
 }
 
-function scanArtstudioFolder(context) {
-  return ccSealScanFolderRecursive_(context.artstudioFolder, 'ARTSTUDIO', 0, true);
+function suggestedFolderName_(name) {
+  const map = {
+    '00_Legal_Files': '08_Legal_Files',
+    'Стандарты': '04_Standards_SOP',
+    '01_Brand_Context': '02_Brand_Context',
+    '02_Official_Sites': '05_Official_Sites',
+    '03_OTA': '06_OTA',
+    '04_Reviews': '07_Reviews',
+    '05_Investor': '09_Owner_Investor',
+    '06_Competitors': '10_Competitors_Market'
+  };
+  return map[name] || null;
 }
 
-function scanControlCenterFolder(context) {
-  return ccSealScanFolderRecursive_(context.controlCenterFolder, '00_CONTROL_CENTER', 0, true);
-}
-
-function scanRootProjectFiles(context) {
-  if (!CONFIG.rootScanEnabled || !context.artstudioParentFolder) {
-    return [];
-  }
-  const records = [];
-  const files = context.artstudioParentFolder.getFiles();
-  while (files.hasNext()) {
-    const file = files.next();
-    if (ccSealIsProjectObjectName_(file.getName())) {
-      const record = ccSealDescribeObject_(file, 'file', 'ROOT_PROJECT', context.artstudioParentFolder);
-      record.isRootLevelProjectFile = true;
-      records.push(record);
-    }
-  }
-  const folders = context.artstudioParentFolder.getFolders();
+function scanFolderRecursive_(folder, locationType, depth) {
+  const records = [describeObject_(folder, 'folder', locationType, null)];
+  const files = folder.getFiles();
+  while (files.hasNext()) records.push(describeObject_(files.next(), 'file', locationType, folder));
+  if (depth >= CONFIG.maxScanDepth) return records;
+  const folders = folder.getFolders();
   while (folders.hasNext()) {
-    const folder = folders.next();
-    if (folder.getId() !== CONFIG.artstudioFolderId && ccSealIsProjectObjectName_(folder.getName())) {
-      const record = ccSealDescribeObject_(folder, 'folder', 'ROOT_PROJECT', context.artstudioParentFolder);
-      record.isRootLevelProjectFile = true;
-      records.push(record);
-    }
+    const nested = folders.next();
+    const nestedLocation = nested.getId() === CONFIG.controlCenterFolderId ? '00_CONTROL_CENTER' : locationType + '/' + nested.getName();
+    records.push.apply(records, scanFolderRecursive_(nested, nestedLocation, depth + 1));
   }
   return records;
 }
 
-function findControlCenterFiles(context, auditRecords) {
-  const byName = {};
-  const records = auditRecords || scanControlCenterFolder(context);
-  records.forEach(function(record) {
-    if (record.isInsideControlCenter && CONFIG.canonicalControlFiles.indexOf(record.objectName) !== -1) {
-      byName[record.objectName] = record;
-    }
-  });
-  return byName;
+function describeObject_(object, objectType, locationType, parentFolder) {
+  const parent = parentInfo_(object, parentFolder);
+  return {
+    objectId: object.getId(),
+    objectName: object.getName(),
+    objectType: objectType,
+    mimeType: objectType === 'file' ? object.getMimeType() : 'application/vnd.google-apps.folder',
+    size: objectType === 'file' ? object.getSize() : '',
+    url: object.getUrl(),
+    parentId: parent.id,
+    parentName: parent.name,
+    currentLocation: parent.name || locationType,
+    locationType: locationType,
+    createdTime: date_(object.getDateCreated()),
+    modifiedTime: object.getLastUpdated ? date_(object.getLastUpdated()) : '',
+    notes: ''
+  };
 }
 
-function detectDuplicateControlFiles(auditRecords, canonicalFiles) {
-  const findings = [];
-  auditRecords.forEach(function(record) {
-    if (record.isInsideControlCenter || CONFIG.canonicalControlFiles.indexOf(record.objectName) === -1) {
-      return;
-    }
-    const canonical = canonicalFiles[record.objectName] || null;
-    findings.push({
-      object: record,
-      canonical: canonical,
-      detectionRule: 'DUPLICATE_CANONICAL_CONTROL_FILE',
-      problem: 'Canonical control file exists outside 00_CONTROL_CENTER.',
-      recommendedAction: 'human review duplicate',
-      machineRecommendation: 'Compare with the canonical control-center object before any archive or merge action.',
-      safeAction: 'audit only; no move or delete',
-      priority: 'P1',
-      risk: canonical ? 'high' : 'medium',
-      compareResult: canonical ? compareDuplicateObjects(record, canonical) : 'canonical missing in control center',
-      uniqueContentRisk: 'unknown until human review'
-    });
-  });
-  return findings;
-}
-
-function detectSetupArtifacts(auditRecords) {
-  const setupNames = CONFIG.setupArtifacts.map(function(name) { return name.toLowerCase(); });
-  return auditRecords.filter(function(record) {
-    return setupNames.indexOf(record.objectName.toLowerCase()) !== -1;
-  }).map(function(record) {
-    return {
-      object: record,
-      detectionRule: 'SETUP_ARTIFACT',
-      problem: 'Setup artifact remains visible after control-center bootstrap.',
-      recommendedAction: 'archive setup artifact',
-      targetName: record.objectName,
-      targetLocation: CONFIG.controlCenterFolderName + '/' + CONFIG.setupArchiveFolderName,
-      machineRecommendation: 'Archive after human review; keep for traceability, do not delete.',
-      safeAction: 'archive after accepted decision',
-      priority: 'P2',
-      risk: 'low',
-      compareResult: 'not applicable',
-      uniqueContentRisk: 'low'
-    };
-  });
-}
-
-function detectMethodologyFiles(auditRecords) {
-  return auditRecords.filter(function(record) {
-    return record.objectName.indexOf(CONFIG.methodologyPrefix) === 0 ||
-      record.objectName.indexOf('ARTSTUDIO Base вЂ”') === 0;
-  }).map(function(record) {
-    return {
-      object: record,
-      detectionRule: 'METHODOLOGY_FILE',
-      problem: 'Methodology file should be grouped under the methodology area.',
-      recommendedAction: 'move methodology file',
-      targetName: record.objectName,
-      targetLocation: CONFIG.controlCenterFolderName + '/' + CONFIG.methodologyFolderName,
-      machineRecommendation: 'Move to methodology folder after human review.',
-      safeAction: 'move after accepted decision',
-      priority: 'P2',
-      risk: 'medium',
-      compareResult: 'not applicable',
-      uniqueContentRisk: 'medium'
-    };
-  });
-}
-
-function detectNamingIssues(auditRecords) {
-  const findings = [];
-  auditRecords.forEach(function(record) {
-    if (record.objectType !== 'folder' || record.parentId !== CONFIG.artstudioFolderId) {
-      ccSealDetectEbookIssue_(record, findings);
-      return;
-    }
-
-    if (/^00_/i.test(record.objectName) && record.objectName !== CONFIG.controlCenterFolderName) {
-      findings.push(ccSealNamingFinding_(record, 'DUPLICATE_00_PREFIX',
-        'Only 00_CONTROL_CENTER should use the 00 prefix at ARTSTUDIO root.',
-        ccSealSuggestedName_(record.objectName),
-        'Rename or move the folder after human approval.'));
-    }
-
-    if (!/^\d{2}_/.test(record.objectName) && ccSealLooksLikeSystemFolder_(record.objectName)) {
-      findings.push(ccSealNamingFinding_(record, 'UNNUMBERED_SYSTEM_FOLDER',
-        'System-level folder does not have a numeric prefix.',
-        ccSealSuggestedName_(record.objectName),
-        'Assign a stable NN_English_Name prefix after human approval.'));
-    }
-
-    if (ccSealHasCyrillic_(record.objectName) && ccSealHasLatin_(record.objectName)) {
-      findings.push(ccSealNamingFinding_(record, 'MIXED_LANGUAGE_SYSTEM_NAME',
-        'System folder mixes Cyrillic and Latin naming at the root level.',
-        ccSealSuggestedName_(record.objectName),
-        'Use a stable English technical folder name and document Russian wording inside.'));
-    }
-
-    ccSealDetectEbookIssue_(record, findings);
-  });
-  return ccSealDedupeFindings_(findings);
-}
-
-function compareDuplicateObjects(duplicateRecord, canonicalRecord) {
-  if (!canonicalRecord) {
-    return 'canonical missing';
+function parentInfo_(object, parentFolder) {
+  if (parentFolder) return { id: parentFolder.getId(), name: parentFolder.getName() };
+  const parents = object.getParents();
+  if (parents.hasNext()) {
+    const parent = parents.next();
+    return { id: parent.getId(), name: parent.getName() };
   }
-  if (duplicateRecord.objectId === canonicalRecord.objectId) {
-    return 'same object';
-  }
-  if (duplicateRecord.mimeType !== canonicalRecord.mimeType) {
-    return 'different mime type';
-  }
-  if (duplicateRecord.modifiedTime === canonicalRecord.modifiedTime) {
-    return 'same modified timestamp';
-  }
-  return 'same name; content comparison required';
+  return { id: '', name: '' };
 }
 
-function writeDriveAuditSnapshot(spreadsheet, auditRecords, snapshotId, scanTime) {
-  const sheet = ccSealResetSheet_(spreadsheet, CONFIG.auditSheetName, AUDIT_HEADERS);
-  const rows = auditRecords.map(function(record) {
-    return [
-      snapshotId, scanTime, record.objectId, record.objectName, record.objectType,
-      record.mimeType, record.url, record.parentId, record.parentName, record.locationType,
-      ccSealBool_(record.isInsideArtstudio), ccSealBool_(record.isInsideControlCenter),
-      ccSealBool_(record.isRootLevelProjectFile), record.createdTime, record.modifiedTime,
-      record.notes || ''
-    ];
-  });
-  ccSealWriteRows_(sheet, rows);
+function writeDriveAuditSnapshot(spreadsheet, records, snapshotId, scanTime) {
+  const sheet = resetSheet_(spreadsheet, CONFIG.auditSheetName, AUDIT_HEADERS);
+  writeRows_(sheet, records.map(function(r) {
+    return [snapshotId, scanTime, r.objectId, r.objectName, r.objectType, r.mimeType, r.url, r.parentId, r.parentName, r.locationType, r.createdTime, r.modifiedTime, r.notes];
+  }));
 }
 
-function writeDuplicateReport(spreadsheet, duplicateFindings, snapshotId, scanTime) {
-  const sheet = ccSealResetSheet_(spreadsheet, CONFIG.duplicateReportSheetName, DUPLICATE_HEADERS);
-  const rows = duplicateFindings.map(function(finding) {
-    return [
-      snapshotId, scanTime, finding.object.objectId, finding.object.objectName,
-      finding.object.url, finding.object.currentLocation,
-      finding.canonical ? finding.canonical.objectId : '',
-      finding.canonical ? finding.canonical.url : '',
-      finding.compareResult, finding.uniqueContentRisk, finding.recommendedAction,
-      finding.safeAction, 'open'
-    ];
-  });
-  ccSealWriteRows_(sheet, rows);
-}
-
-function writeNamingIssues(spreadsheet, namingFindings, snapshotId, scanTime) {
-  const priorDecisions = ccSealReadDecisionMap_(spreadsheet, CONFIG.namingIssuesSheetName);
-  const sheet = ccSealResetSheet_(spreadsheet, CONFIG.namingIssuesSheetName, NAMING_HEADERS);
-  const rows = namingFindings.map(function(finding) {
-    const key = ccSealKey_(finding.object.objectId, finding.detectionRule);
-    return [
-      snapshotId, scanTime, finding.object.objectId, finding.object.objectName,
-      finding.object.objectType, finding.object.url, finding.object.currentLocation,
-      finding.detectionRule, finding.problem, finding.targetName || '',
-      finding.machineRecommendation, priorDecisions[key] || '', 'open', scanTime
-    ];
-  });
-  ccSealWriteRows_(sheet, rows);
+function writeFindings(spreadsheet, sheetName, findings, snapshotId, scanTime) {
+  const sheet = resetSheet_(spreadsheet, sheetName, FINDING_HEADERS);
+  writeRows_(sheet, findings.map(function(f) {
+    return [snapshotId, scanTime, f.object.objectId, f.object.objectName, f.object.url, f.object.currentLocation, f.detectionRule, f.problem, f.recommendedAction, f.safeAction, f.risk, f.compareResult, 'open'];
+  }));
 }
 
 function writeReorganizationPlanRows(spreadsheet, recommendations, scanTime) {
-  const sheet = ccSealEnsureSheet_(spreadsheet, 'Main', MAIN_HEADERS);
-  const headers = ccSealGetHeaders_(sheet);
-  const existingKeys = ccSealReadExistingRecommendationKeys_(sheet, headers);
+  const sheet = ensureSheet_(spreadsheet, 'Main', MAIN_HEADERS);
+  const headers = getHeaders_(sheet);
+  const existing = existingKeys_(sheet, headers);
   const rows = [];
-
   recommendations.forEach(function(item) {
-    const key = ccSealKey_(item.object.objectId, item.detectionRule);
-    if (existingKeys[key]) {
-      return;
-    }
-    rows.push(ccSealRowFromMap_(headers, {
-      'Action ID': ccSealActionId_(item.detectionRule, item.object.objectId),
+    const key = item.object.objectId + '|' + item.detectionRule;
+    if (existing[key]) return;
+    rows.push(rowFromMap_(headers, {
+      'Action ID': 'ST2-' + item.detectionRule + '-' + String(item.object.objectId).slice(0, 8),
       'Current file / folder': item.object.objectName,
       'Current location': item.object.currentLocation,
       'Problem': item.problem,
       'Recommended action': item.recommendedAction,
-      'Target name': item.targetName || item.object.objectName,
-      'Target location': item.targetLocation || '',
+      'Target name': item.targetName,
+      'Target location': item.targetLocation,
       'Priority': item.priority,
       'Risk': item.risk,
       'Machine recommendation': item.machineRecommendation,
-      'Human decision': '',
+      'Human decision': item.risk === 'low' && item.safeAction !== 'no automated action' ? 'auto-safe' : '',
       'Execution status': 'not started',
-      'Executed by': '',
       'Date': scanTime,
       'Object ID': item.object.objectId,
       'Object URL': item.object.url,
@@ -421,378 +498,179 @@ function writeReorganizationPlanRows(spreadsheet, recommendations, scanTime) {
       'Compare result': item.compareResult,
       'Unique content risk': item.uniqueContentRisk,
       'Safe action': item.safeAction,
-      'Execution log': 'Audit-only recommendation; no action executed.',
+      'Execution log': 'Prepared by audit; not executed yet.',
       'Last checked': scanTime
     }));
-    existingKeys[key] = true;
+    existing[key] = true;
   });
-
-  ccSealWriteRows_(sheet, rows);
+  writeRows_(sheet, rows);
 }
 
-function writeValidationReport(spreadsheet, state) {
-  const sheet = ccSealResetSheet_(spreadsheet, CONFIG.validationSheetName, VALIDATION_HEADERS);
-  const checkedAt = ccSealNow_();
-  const canonicalFound = Object.keys(state.canonicalFiles || {}).length;
-  const rows = [
-    ccSealValidationRow_('VAL-001', 'Control center folder configured', CONFIG.controlCenterFolderId, CONFIG.controlCenterFolderId, 'PASS', '', checkedAt),
-    ccSealValidationRow_('VAL-002', 'Canonical files found in 00_CONTROL_CENTER', '11', String(canonicalFound), canonicalFound === 11 ? 'PASS' : 'WARN', 'Missing files require human review before closure.', checkedAt),
-    ccSealValidationRow_('VAL-003', 'Duplicate canonical files reported', '0 preferred after execution', String(state.duplicateFindings.length), state.duplicateFindings.length ? 'WARN' : 'PASS', 'Audit-only can only report duplicates.', checkedAt),
-    ccSealValidationRow_('VAL-004', 'Setup artifacts reported', '0 preferred after execution', String(state.setupFindings.length), state.setupFindings.length ? 'WARN' : 'PASS', 'Archive only after accepted human decision.', checkedAt),
-    ccSealValidationRow_('VAL-005', 'Methodology files reported', '0 preferred outside methodology folder', String(state.methodologyFindings.length), state.methodologyFindings.length ? 'WARN' : 'PASS', 'Move only after accepted human decision.', checkedAt),
-    ccSealValidationRow_('VAL-006', 'Naming issues reported', '0 preferred', String(state.namingFindings.length), state.namingFindings.length ? 'WARN' : 'PASS', 'Human decisions are required for naming changes.', checkedAt),
-    ccSealValidationRow_('VAL-007', 'Audit-only safety mode', 'dryRun=true; executeAcceptedActions=false; allowDelete=false', 'dryRun=' + CONFIG.dryRun + '; executeAcceptedActions=' + CONFIG.executeAcceptedActions + '; allowDelete=' + CONFIG.allowDelete, ccSealIsSafeMode_() ? 'PASS' : 'FAIL', '', checkedAt),
-    ccSealValidationRow_('VAL-008', 'Reorganization recommendations prepared', 'Rows added only for new Object ID + Detection rule', String(state.recommendations.length), 'PASS', 'Existing rows are preserved.', checkedAt)
-  ];
-  ccSealWriteRows_(sheet, rows);
+function writeValidationReport(spreadsheet, records, findings, canonical) {
+  const sheet = resetSheet_(spreadsheet, CONFIG.validationSheetName, VALIDATION_HEADERS);
+  const checkedAt = now_();
+  const rootNames = records.filter(function(r) { return r.parentId === CONFIG.artstudioFolderId && r.objectType === 'folder'; }).map(function(r) { return r.objectName; });
+  const missing = CONFIG.rootFolders.filter(function(name) { return rootNames.indexOf(name) === -1 && name !== '00_CONTROL_CENTER'; });
+  const canonicalCount = Object.keys(canonical).length;
+  writeRows_(sheet, [
+    ['ST2-VAL-001', 'Canonical root folders', 'all configured folders exist', missing.length ? missing.join(', ') : 'all present', missing.length ? 'WARN' : 'PASS', '', checkedAt],
+    ['ST2-VAL-002', 'Control center files', '11 canonical files', String(canonicalCount), canonicalCount === 11 ? 'PASS' : 'WARN', '', checkedAt],
+    ['ST2-VAL-003', 'Duplicate findings', '0 preferred after execution', String(findings.duplicates.length), findings.duplicates.length ? 'WARN' : 'PASS', '', checkedAt],
+    ['ST2-VAL-004', 'Naming findings', '0 preferred after execution', String(findings.naming.length), findings.naming.length ? 'WARN' : 'PASS', '', checkedAt],
+    ['ST2-VAL-005', 'Trash policy', 'permanent delete disabled', 'allowPermanentDelete=' + CONFIG.allowPermanentDelete, CONFIG.allowPermanentDelete ? 'FAIL' : 'PASS', 'Duplicates use Drive trash only.', checkedAt]
+  ]);
 }
 
-function appendToolRunLog(context, summary) {
+function appendToolRunLog(ctx, summary) {
   try {
-    const spreadsheet = ccSealFindSpreadsheetByName_(context.controlCenterFolder, CONFIG.toolRunLogName);
-    const sheet = ccSealEnsureSheet_(spreadsheet, CONFIG.toolRunLogName, [
+    const spreadsheet = findSpreadsheetByName_(ctx.controlCenterFolder, CONFIG.toolRunLogName);
+    const sheet = ensureSheet_(spreadsheet, CONFIG.toolRunLogName, [
       'Run ID', 'Date / time', 'Tool', 'Task', 'Input sources', 'Output',
       'Affected files', 'Status', 'Human review required', 'Human decision', 'Notes'
     ]);
     sheet.appendRow([
       summary.runId,
-      summary.startedAt,
+      now_(),
       'Google Apps Script',
-      summary.validationOnly ? 'Stage 1 sealing validation' : 'Stage 1 sealing audit-only scan',
-      'ARTSTUDIO folder; 00_CONTROL_CENTER folder; root project files',
-      'Scanned ' + summary.recordsScanned + ' objects; prepared ' + summary.recommendations + ' recommendations',
+      summary.task,
+      'ARTSTUDIO Drive; 00_CONTROL_CENTER; GitHub policy config',
+      summary.output,
       CONFIG.reorganizationPlanName,
-      'completed',
-      summary.recommendations || summary.duplicates || summary.namingIssues ? 'yes' : 'no',
+      summary.status,
+      summary.reviewRequired,
       '',
-      'Audit-only: no delete, permission change, move, or rename was executed.'
+      summary.notes || ''
     ]);
   } catch (err) {
-    Logger.log('Tool run log update skipped: ' + err.message);
+    Logger.log('Tool Run Log update skipped: ' + err.message);
   }
 }
 
-function ccSealBuildContext_() {
+function buildContext_() {
   const artstudioFolder = DriveApp.getFolderById(CONFIG.artstudioFolderId);
   const controlCenterFolder = DriveApp.getFolderById(CONFIG.controlCenterFolderId);
-  const reorganizationSpreadsheet = ccSealFindSpreadsheetByName_(controlCenterFolder, CONFIG.reorganizationPlanName);
-  let artstudioParentFolder = null;
-  const parents = artstudioFolder.getParents();
-  if (parents.hasNext()) {
-    artstudioParentFolder = parents.next();
-  }
   return {
     artstudioFolder: artstudioFolder,
-    artstudioParentFolder: artstudioParentFolder,
     controlCenterFolder: controlCenterFolder,
-    reorganizationSpreadsheet: reorganizationSpreadsheet
+    reorganizationSpreadsheet: findSpreadsheetByName_(controlCenterFolder, CONFIG.reorganizationPlanName)
   };
 }
 
-function ccSealValidateConfig_() {
-  if (!CONFIG.artstudioFolderId || !CONFIG.controlCenterFolderId) {
-    throw new Error('ARTSTUDIO and 00_CONTROL_CENTER folder IDs are required.');
-  }
-  if (CONFIG.allowDelete) {
-    throw new Error('allowDelete must remain false for Stage 1 sealing.');
-  }
-  if (!CONFIG.dryRun || CONFIG.executeAcceptedActions) {
-    throw new Error('Stage 1 production release is audit-only: dryRun must be true and executeAcceptedActions must be false.');
-  }
-  if (CONFIG.canonicalControlFiles.length !== 11) {
-    throw new Error('Expected exactly 11 canonical control center files.');
-  }
+function validateConfig_() {
+  if (!CONFIG.artstudioFolderId || !CONFIG.controlCenterFolderId) throw new Error('Folder IDs are required.');
+  if (CONFIG.allowPermanentDelete) throw new Error('Permanent delete must remain disabled.');
+  if (CONFIG.canonicalControlFiles.length !== 11) throw new Error('Expected 11 control files.');
 }
 
-function ccSealScanFolderRecursive_(folder, locationType, depth, insideArtstudio) {
-  const currentLocation = folder.getId() === CONFIG.controlCenterFolderId ? '00_CONTROL_CENTER' : locationType;
-  const records = [
-    ccSealDescribeObject_(folder, 'folder', currentLocation, null, insideArtstudio || currentLocation === '00_CONTROL_CENTER')
-  ];
-
-  const files = folder.getFiles();
-  while (files.hasNext()) {
-    records.push(ccSealDescribeObject_(files.next(), 'file', currentLocation, folder, true));
-  }
-
-  if (depth >= CONFIG.maxScanDepth) {
-    return records;
-  }
-
-  const folders = folder.getFolders();
-  while (folders.hasNext()) {
-    const nestedFolder = folders.next();
-    const nestedLocation = currentLocation === '00_CONTROL_CENTER' || nestedFolder.getId() === CONFIG.controlCenterFolderId
-      ? '00_CONTROL_CENTER'
-      : currentLocation;
-    records.push.apply(records, ccSealScanFolderRecursive_(nestedFolder, nestedLocation, depth + 1, true));
-  }
-  return ccSealDedupeRecords_(records);
-}
-
-function ccSealDescribeObject_(object, objectType, locationType, parentFolder, insideArtstudioOverride) {
-  const parentInfo = ccSealParentInfo_(object, parentFolder);
-  const objectId = object.getId();
-  const insideControlCenter = locationType === '00_CONTROL_CENTER' ||
-    parentInfo.id === CONFIG.controlCenterFolderId ||
-    objectId === CONFIG.controlCenterFolderId;
-  const insideArtstudio = Boolean(insideArtstudioOverride) ||
-    insideControlCenter ||
-    parentInfo.id === CONFIG.artstudioFolderId ||
-    objectId === CONFIG.artstudioFolderId;
-  return {
-    objectId: objectId,
-    objectName: object.getName(),
-    objectType: objectType,
-    mimeType: objectType === 'file' ? object.getMimeType() : 'application/vnd.google-apps.folder',
-    url: object.getUrl(),
-    parentId: parentInfo.id,
-    parentName: parentInfo.name,
-    currentLocation: parentInfo.name || '',
-    locationType: locationType,
-    isInsideArtstudio: insideArtstudio,
-    isInsideControlCenter: insideControlCenter,
-    isRootLevelProjectFile: false,
-    createdTime: ccSealDate_(object.getDateCreated()),
-    modifiedTime: object.getLastUpdated ? ccSealDate_(object.getLastUpdated()) : '',
-    notes: ''
-  };
-}
-
-function ccSealParentInfo_(object, parentFolder) {
-  if (parentFolder) {
-    return { id: parentFolder.getId(), name: parentFolder.getName() };
-  }
-  const parents = object.getParents();
-  if (parents.hasNext()) {
-    const parent = parents.next();
-    return { id: parent.getId(), name: parent.getName() };
-  }
-  return { id: '', name: '' };
-}
-
-function ccSealBuildRecommendations_(duplicateFindings, setupFindings, methodologyFindings, namingFindings) {
-  return []
-    .concat(duplicateFindings)
-    .concat(setupFindings)
-    .concat(methodologyFindings)
-    .concat(namingFindings);
-}
-
-function ccSealNamingFinding_(record, rule, problem, targetName, recommendation) {
-  return {
-    object: record,
-    detectionRule: rule,
-    problem: problem,
-    recommendedAction: 'rename after approval',
-    targetName: targetName,
-    targetLocation: record.currentLocation,
-    machineRecommendation: recommendation,
-    safeAction: 'rename after accepted decision',
-    priority: 'P2',
-    risk: 'medium',
-    compareResult: 'not applicable',
-    uniqueContentRisk: 'low'
-  };
-}
-
-function ccSealDetectEbookIssue_(record, findings) {
-  if (/e[\s_-]?book/i.test(record.objectName) && record.objectName.indexOf('E-book') === -1) {
-    findings.push(ccSealNamingFinding_(record, 'INCONSISTENT_EBOOK_CASE',
-      'E-book/e-book/Ebook naming is inconsistent.',
-      record.objectName.replace(/e[\s_-]?book/ig, 'E-book'),
-      'Normalize E-book naming after human approval.'));
-  }
-}
-
-function ccSealLooksLikeSystemFolder_(name) {
-  if (name === CONFIG.controlCenterFolderName || name === 'RU' || name === 'EN') {
-    return false;
-  }
-  return /^(control|archive|setup|project|methodology|knowledge|source|legal|standard|system|file|document|base|рынок|стандарт|архив|источник)/i.test(name) ||
-    ccSealHasCyrillic_(name);
-}
-
-function ccSealSuggestedName_(name) {
-  if (name === '00_Legal_Files') {
-    return '07_Legal_Files';
-  }
-  if (name === 'Стандарты' || name === 'РЎС‚Р°РЅРґР°СЂС‚С‹') {
-    return '08_Standards';
-  }
-  return name.replace(/^00_/, 'NN_').replace(/\s+/g, '_');
-}
-
-function ccSealHasCyrillic_(value) {
-  return /[\u0400-\u04FF]/.test(value);
-}
-
-function ccSealHasLatin_(value) {
-  return /[A-Za-z]/.test(value);
-}
-
-function ccSealIsProjectObjectName_(name) {
-  if (CONFIG.canonicalControlFiles.indexOf(name) !== -1) {
-    return true;
-  }
-  if (CONFIG.setupArtifacts.map(function(item) { return item.toLowerCase(); }).indexOf(name.toLowerCase()) !== -1) {
-    return true;
-  }
-  return name.indexOf(CONFIG.methodologyPrefix) === 0 || name.indexOf('ARTSTUDIO Base вЂ—') === 0;
-}
-
-function ccSealFindSpreadsheetByName_(folder, name) {
+function findSpreadsheetByName_(folder, name) {
   const files = folder.getFilesByName(name);
   while (files.hasNext()) {
     const file = files.next();
-    if (file.getMimeType() === MimeType.GOOGLE_SHEETS) {
-      return SpreadsheetApp.openById(file.getId());
-    }
+    if (file.getMimeType() === MimeType.GOOGLE_SHEETS) return SpreadsheetApp.openById(file.getId());
   }
-  throw new Error('Spreadsheet not found in folder ' + folder.getName() + ': ' + name);
+  throw new Error('Spreadsheet not found: ' + name);
 }
 
-function ccSealEnsureSheet_(spreadsheet, sheetName, headers) {
-  let sheet = spreadsheet.getSheetByName(sheetName);
-  if (!sheet) {
-    sheet = spreadsheet.insertSheet(sheetName);
-  }
-  const currentHeaders = ccSealGetHeaders_(sheet);
-  if (!currentHeaders.length) {
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-  } else {
-    headers.forEach(function(header) {
-      if (currentHeaders.indexOf(header) === -1) {
-        sheet.getRange(1, sheet.getLastColumn() + 1).setValue(header);
-        currentHeaders.push(header);
-      }
-    });
-  }
+function ensureSheet_(spreadsheet, sheetName, headers) {
+  let sheet = spreadsheet.getSheetByName(sheetName) || spreadsheet.insertSheet(sheetName);
+  const current = getHeaders_(sheet);
+  if (!current.length) sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  else headers.forEach(function(h) { if (current.indexOf(h) === -1) sheet.getRange(1, sheet.getLastColumn() + 1).setValue(h); });
   sheet.setFrozenRows(1);
   return sheet;
 }
 
-function ccSealResetSheet_(spreadsheet, sheetName, headers) {
-  let sheet = spreadsheet.getSheetByName(sheetName);
-  if (!sheet) {
-    sheet = spreadsheet.insertSheet(sheetName);
-  }
+function resetSheet_(spreadsheet, sheetName, headers) {
+  const sheet = spreadsheet.getSheetByName(sheetName) || spreadsheet.insertSheet(sheetName);
   sheet.clear();
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
   sheet.setFrozenRows(1);
   return sheet;
 }
 
-function ccSealGetHeaders_(sheet) {
-  if (sheet.getLastColumn() < 1 || sheet.getLastRow() < 1) {
-    return [];
-  }
-  return sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function(value) {
-    return String(value || '').trim();
-  });
+function getHeaders_(sheet) {
+  if (sheet.getLastRow() < 1 || sheet.getLastColumn() < 1) return [];
+  return sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0].map(function(v) { return String(v || '').trim(); });
 }
 
-function ccSealWriteRows_(sheet, rows) {
-  if (!rows.length) {
-    return;
-  }
+function writeRows_(sheet, rows) {
+  if (!rows.length) return;
   sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
 }
 
-function ccSealReadExistingRecommendationKeys_(sheet, headers) {
-  const objectIdIndex = headers.indexOf('Object ID');
-  const ruleIndex = headers.indexOf('Detection rule');
+function existingKeys_(sheet, headers) {
   const keys = {};
-  if (objectIdIndex === -1 || ruleIndex === -1 || sheet.getLastRow() < 2) {
-    return keys;
-  }
-  const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues();
-  values.forEach(function(row) {
-    const objectId = row[objectIdIndex];
-    const rule = row[ruleIndex];
-    if (objectId && rule) {
-      keys[ccSealKey_(objectId, rule)] = true;
-    }
+  const objectIdx = headers.indexOf('Object ID');
+  const ruleIdx = headers.indexOf('Detection rule');
+  if (objectIdx === -1 || ruleIdx === -1 || sheet.getLastRow() < 2) return keys;
+  sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues().forEach(function(row) {
+    if (row[objectIdx] && row[ruleIdx]) keys[row[objectIdx] + '|' + row[ruleIdx]] = true;
   });
   return keys;
 }
 
-function ccSealReadDecisionMap_(spreadsheet, sheetName) {
-  const sheet = spreadsheet.getSheetByName(sheetName);
-  const decisions = {};
-  if (!sheet || sheet.getLastRow() < 2) {
-    return decisions;
-  }
-  const headers = ccSealGetHeaders_(sheet);
-  const objectIdIndex = headers.indexOf('Object ID');
-  const ruleIndex = headers.indexOf('Detection rule');
-  const decisionIndex = headers.indexOf('Human decision');
-  if (objectIdIndex === -1 || ruleIndex === -1 || decisionIndex === -1) {
-    return decisions;
-  }
-  const values = sheet.getRange(2, 1, sheet.getLastRow() - 1, headers.length).getValues();
-  values.forEach(function(row) {
-    if (row[objectIdIndex] && row[ruleIndex] && row[decisionIndex]) {
-      decisions[ccSealKey_(row[objectIdIndex], row[ruleIndex])] = row[decisionIndex];
-    }
-  });
-  return decisions;
+function rowToObject_(headers, row) {
+  const out = {};
+  headers.forEach(function(h, i) { out[h] = row[i]; });
+  return out;
 }
 
-function ccSealRowFromMap_(headers, valuesByHeader) {
-  return headers.map(function(header) {
-    return Object.prototype.hasOwnProperty.call(valuesByHeader, header) ? valuesByHeader[header] : '';
-  });
+function rowFromMap_(headers, map) {
+  return headers.map(function(h) { return Object.prototype.hasOwnProperty.call(map, h) ? map[h] : ''; });
 }
 
-function ccSealDedupeRecords_(records) {
+function updateExecutionCells_(sheet, headers, rowNumber, result) {
+  setCell_(sheet, headers, rowNumber, 'Execution status', result.status);
+  setCell_(sheet, headers, rowNumber, 'Execution log', result.message);
+  setCell_(sheet, headers, rowNumber, 'Executed by', 'Google Apps Script');
+  setCell_(sheet, headers, rowNumber, 'Last checked', now_());
+}
+
+function setCell_(sheet, headers, rowNumber, header, value) {
+  const idx = headers.indexOf(header);
+  if (idx !== -1) sheet.getRange(rowNumber, idx + 1).setValue(value);
+}
+
+function isFolderEmpty_(folder) {
+  return !folder.getFiles().hasNext() && !folder.getFolders().hasNext();
+}
+
+function dedupeRecords_(records) {
   const seen = {};
-  return records.filter(function(record) {
-    const key = record.objectId + '|' + record.parentId + '|' + record.locationType;
-    if (seen[key]) {
-      return false;
-    }
+  return records.filter(function(r) {
+    const key = r.objectId + '|' + r.parentId + '|' + r.locationType;
+    if (seen[key]) return false;
     seen[key] = true;
     return true;
   });
 }
 
-function ccSealDedupeFindings_(findings) {
+function dedupeRecommendations_(items) {
   const seen = {};
-  return findings.filter(function(finding) {
-    const key = ccSealKey_(finding.object.objectId, finding.detectionRule);
-    if (seen[key]) {
-      return false;
-    }
+  return items.filter(function(item) {
+    const key = item.object.objectId + '|' + item.detectionRule;
+    if (seen[key]) return false;
     seen[key] = true;
     return true;
   });
 }
 
-function ccSealKey_(objectId, detectionRule) {
-  return String(objectId) + '|' + String(detectionRule);
+function result_(status, message) {
+  return { status: status, message: message };
 }
 
-function ccSealActionId_(rule, objectId) {
-  return 'SEAL-' + rule.replace(/[^A-Z0-9]+/g, '-').replace(/-$/, '') + '-' + String(objectId).slice(0, 8);
+function normalize_(value) {
+  return String(value || '').trim().toLowerCase();
 }
 
-function ccSealValidationRow_(id, name, expected, actual, status, notes, checkedAt) {
-  return [id, name, expected, actual, status, notes || '', checkedAt];
+function runId_(prefix) {
+  return prefix + '-' + Utilities.formatDate(new Date(), CONFIG.timezone, 'yyyyMMdd-HHmmss');
 }
 
-function ccSealIsSafeMode_() {
-  return CONFIG.dryRun === true && CONFIG.executeAcceptedActions === false && CONFIG.allowDelete === false;
-}
-
-function ccSealBool_(value) {
-  return value ? 'yes' : 'no';
-}
-
-function ccSealNow_() {
+function now_() {
   return Utilities.formatDate(new Date(), CONFIG.timezone, "yyyy-MM-dd'T'HH:mm:ss");
 }
 
-function ccSealDate_(date) {
+function date_(date) {
   return date ? Utilities.formatDate(date, CONFIG.timezone, "yyyy-MM-dd'T'HH:mm:ss") : '';
 }
