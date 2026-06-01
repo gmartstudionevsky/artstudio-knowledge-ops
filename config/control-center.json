@@ -1,0 +1,72 @@
+{
+  "project": "ARTSTUDIO Knowledge Ops",
+  "timezone": "Europe/Moscow",
+  "canonicalRepository": "gmartstudionevsky/artstudio-knowledge-ops",
+  "drive": {
+    "artstudioFolderId": "17dKXkxMd_iiBz5AFbKtt7YvuEzo-bfQK",
+    "controlCenterFolderId": "13riY7cN6DjiYg1k9ey19sdFgva8cP7dp",
+    "folders": [
+      { "order": "00", "name": "00_CONTROL_CENTER", "purpose": "governance, indexes, logs and automation control" },
+      { "order": "01", "name": "01_INBOX", "purpose": "single intake point for new and unclassified materials" },
+      { "order": "02", "name": "02_Brand_Context", "purpose": "brandbooks, tone, visual and communication context" },
+      { "order": "03", "name": "03_Object_Data", "purpose": "object-level factual materials and property data" },
+      { "order": "04", "name": "04_Standards_SOP", "purpose": "standards, SOPs, scripts and operating procedures" },
+      { "order": "05", "name": "05_Official_Sites", "purpose": "official site pages and guest-facing web content" },
+      { "order": "06", "name": "06_OTA", "purpose": "OTA profiles, descriptions and platform materials" },
+      { "order": "07", "name": "07_Reviews", "purpose": "guest reviews and feedback analysis" },
+      { "order": "08", "name": "08_Legal_Files", "purpose": "contracts, legal files and templates" },
+      { "order": "09", "name": "09_Owner_Investor", "purpose": "owner, investor and yield materials" },
+      { "order": "10", "name": "10_Competitors_Market", "purpose": "competitors, market context and benchmarks" }
+    ],
+    "controlCenterSubfolders": [
+      { "name": "98_Project_Methodology", "purpose": "Stage 0 methodology and project framing artifacts" },
+      { "name": "99_Setup_Archive", "purpose": "bootstrap, setup and historical automation artifacts" }
+    ]
+  },
+  "automationPolicy": {
+    "mode": "auto_safe_actions",
+    "permanentDeleteAllowed": false,
+    "trashObviousDuplicatesAllowed": true,
+    "allowedAutoSafeActions": [
+      "create folder",
+      "move file",
+      "move folder",
+      "rename file",
+      "rename folder",
+      "archive setup artifact",
+      "move methodology file",
+      "trash duplicate"
+    ],
+    "humanDecisionRequiredFor": [
+      "permanent deletion",
+      "publishing external materials",
+      "changing owner",
+      "setting approved status",
+      "high risk action",
+      "merge required",
+      "unique content possible",
+      "folder with unique children"
+    ],
+    "obviousDuplicateRule": {
+      "requiresCanonicalObject": true,
+      "requiresSameName": true,
+      "requiresSameMimeType": true,
+      "requiresNoUniqueContentDetected": true,
+      "folderMustBeEmpty": true,
+      "execution": "Drive trash via setTrashed(true), never permanent delete"
+    }
+  },
+  "controlFiles": [
+    "ARTSTUDIO_Master_Index",
+    "ARTSTUDIO_Source_Map",
+    "ARTSTUDIO_Decision_Log",
+    "ARTSTUDIO_Open_Questions",
+    "ARTSTUDIO_Project_Roadmap",
+    "ARTSTUDIO_Reorganization_Plan",
+    "ARTSTUDIO_Glossary",
+    "ARTSTUDIO_Context_Request_Log",
+    "ARTSTUDIO_Tool_Run_Log",
+    "ARTSTUDIO_Codex_Handoff_Log",
+    "ARTSTUDIO_Drive_Rules"
+  ]
+}
