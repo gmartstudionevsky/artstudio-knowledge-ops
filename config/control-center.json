@@ -2,6 +2,14 @@
   "project": "ARTSTUDIO Knowledge Ops",
   "timezone": "Europe/Moscow",
   "canonicalRepository": "gmartstudionevsky/artstudio-knowledge-ops",
+  "runtime": {
+    "primary": "github_actions_service_account",
+    "legacy": "apps_script",
+    "executionWorkflow": ".github/workflows/drive-ops.yml",
+    "pythonEntrypoint": "knowledge_ops.native_drive_ops",
+    "serviceAccountMode": "repository_secret_json_or_google_application_credentials",
+    "appsScriptAllowed": false
+  },
   "drive": {
     "artstudioFolderId": "17dKXkxMd_iiBz5AFbKtt7YvuEzo-bfQK",
     "controlCenterFolderId": "13riY7cN6DjiYg1k9ey19sdFgva8cP7dp",
@@ -53,9 +61,19 @@
       "requiresSameMimeType": true,
       "requiresNoUniqueContentDetected": true,
       "folderMustBeEmpty": true,
-      "execution": "Drive trash via setTrashed(true), never permanent delete"
+      "execution": "Drive trash via files.update(trashed=true), never permanent delete"
     }
   },
+  "requiredSecrets": [
+    "GOOGLE_SERVICE_ACCOUNT_JSON"
+  ],
+  "optionalSecrets": [
+    "GOOGLE_DELEGATED_USER",
+    "ARTSTUDIO_FOLDER_ID",
+    "CONTROL_CENTER_FOLDER_ID",
+    "OPENAI_API_KEY",
+    "SLACK_WEBHOOK_URL"
+  ],
   "controlFiles": [
     "ARTSTUDIO_Master_Index",
     "ARTSTUDIO_Source_Map",
