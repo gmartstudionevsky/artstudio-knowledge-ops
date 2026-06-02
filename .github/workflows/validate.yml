@@ -56,6 +56,24 @@ jobs:
           assert cfg['automationPolicy']['trashObviousDuplicatesAllowed'] is True
           PY
 
+      - name: Check empty optional secret fallbacks
+        env:
+          ARTSTUDIO_FOLDER_ID: ""
+          CONTROL_CENTER_FOLDER_ID: ""
+        run: |
+          python - <<'PY'
+          import json
+          from knowledge_ops.native_drive_ops import KnowledgeOps, Services
+
+          class DummyService:
+              pass
+
+          cfg = json.load(open('config/control-center.json', encoding='utf-8'))
+          ops = KnowledgeOps(cfg, Services(drive=DummyService(), sheets=DummyService()), dry_run=True)
+          assert ops.artstudio_folder_id == cfg['drive']['artstudioFolderId']
+          assert ops.control_center_folder_id == cfg['drive']['controlCenterFolderId']
+          PY
+
       - name: Check agent spec
         run: |
           set -euo pipefail
