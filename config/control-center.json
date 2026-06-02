@@ -6,7 +6,7 @@
     "primary": "github_actions_service_account",
     "legacy": "apps_script",
     "executionWorkflow": ".github/workflows/drive-ops.yml",
-    "pythonEntrypoint": "knowledge_ops.native_drive_ops",
+    "pythonEntrypoint": "knowledge_ops.strict_drive_ops",
     "serviceAccountMode": "repository_secret_json_or_google_application_credentials",
     "appsScriptAllowed": false
   },
@@ -36,7 +36,9 @@
     "permanentDeleteAllowed": false,
     "trashObviousDuplicatesAllowed": true,
     "pendingTrashFallbackAllowed": true,
+    "quarantinePendingTrashPrimary": true,
     "pendingTrashPath": "ARTSTUDIO/00_CONTROL_CENTER/99_Setup_Archive/00_PENDING_TRASH",
+    "pendingTrashQueueSheet": "Pending Trash Queue",
     "pendingTrashStatus": "quarantined_pending_trash",
     "allowedAutoSafeActions": [
       "create folder",
@@ -65,8 +67,8 @@
       "requiresSameMimeType": true,
       "requiresNoUniqueContentDetected": true,
       "folderMustBeEmpty": true,
-      "execution": "Drive trash via files.update(trashed=true), never permanent delete",
-      "fallbackExecution": "If Drive trash is denied, move the object to ARTSTUDIO/00_CONTROL_CENTER/99_Setup_Archive/00_PENDING_TRASH and log quarantined_pending_trash. If both trash and move are denied, log manual_owner_action_required."
+      "execution": "Strict GitHub runtime moves obvious duplicates to the pending-trash quarantine folder and logs them; Drive trash is not used as the default service-account action.",
+      "fallbackExecution": "If quarantine move is denied, log manual_owner_action_required with the Drive error. Permanent delete is never used."
     }
   },
   "requiredSecrets": [
