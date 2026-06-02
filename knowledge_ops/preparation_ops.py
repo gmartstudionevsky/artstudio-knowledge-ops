@@ -7,13 +7,13 @@ from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
+from googleapiclient.errors import HttpError
+
 from knowledge_ops.native_drive_ops import (
     AUTO_SAFE_ACTIONS,
     FOLDER_MIME,
     MAIN_HEADERS,
-    SHEETS_MIME,
     KnowledgeOps,
-    Services,
     build_services,
     load_config,
     normalize,
@@ -54,6 +54,8 @@ FOLDER_AUDIT_HEADERS = [
     "Child count",
     "Duplicate status",
     "Recommended action",
+    "Execution status",
+    "Execution log",
     "Checked at",
 ]
 
@@ -64,8 +66,10 @@ class PreparationOps(KnowledgeOps):
         duplicate_results = self.merge_duplicate_root_folders()
         planned = self.plan_reorganization(write_main=True)
         validation = self.validate_readiness()
+        manual = self.manual_results(duplicate_results)
         return {
             "duplicateFoldersProcessed": len(duplicate_results),
+            "manualActionsRequired": manual,
             "plannedActions": planned["plannedActions"],
             "validation": validation,
         }
@@ -76,18 +80,22 @@ class PreparationOps(KnowledgeOps):
         plan = self.plan_reorganization(write_main=True)
         execution = self.execute_safe_actions()
         validation = self.validate_readiness()
+        manual = self.manual_results(duplicate_results)
+        status = "completed with manual actions" if manual or validation.get("missingFolders") else "completed"
         self.append_tool_run(
             task="Complete ARTSTUDIO preparation stage",
             output=(
                 f"Duplicate folders processed: {len(duplicate_results)}; "
+                f"manual actions required: {len(manual)}; "
                 f"planned actions: {plan['plannedActions']}; executed rows: {execution['processed']}"
             ),
-            status="completed" if not validation.get("missingFolders") else "completed with warnings",
-            review_required="yes" if validation.get("missingFolders") else "no",
-            notes="Preparation stage uses GitHub-native Drive operations; permanent delete remains disabled.",
+            status=status,
+            review_required="yes" if manual or validation.get("missingFolders") else "no",
+            notes="Preparation stage uses GitHub-native Drive operations; permission gaps are logged instead of aborting the run.",
         )
         return {
             "duplicateFoldersProcessed": len(duplicate_results),
+            "manualActionsRequired": manual,
             "plannedActions": plan["plannedActions"],
             "executedRows": execution["processed"],
             "validation": validation,
@@ -101,12 +109,15 @@ class PreparationOps(KnowledgeOps):
         folder_ids = {folder["name"]: self.resolve_folder_path("ARTSTUDIO/" + folder["name"]) for folder in self.config["drive"]["folders"]}
         folder_ids["98_Project_Methodology"] = self.resolve_folder_path("ARTSTUDIO/00_CONTROL_CENTER/98_Project_Methodology")
         folder_ids["99_Setup_Archive"] = self.resolve_folder_path("ARTSTUDIO/00_CONTROL_CENTER/99_Setup_Archive")
+        canonical_folder_names = {folder["name"] for folder in self.config["drive"]["folders"]}
 
         for file_obj in candidates:
             name = file_obj.get("name", "")
             object_id = file_obj.get("id", "")
             mime_type = file_obj.get("mimeType", "")
             if object_id in {self.artstudio_folder_id, self.control_center_folder_id}:
+                continue
+            if mime_type == FOLDER_MIME and name in canonical_folder_names:
                 continue
             target_location, reason, risk = self.classify_target(name, mime_type)
             if not target_location:
@@ -188,6 +199,10 @@ class PreparationOps(KnowledgeOps):
                 child_count = self.count_children(folder["id"])
                 is_duplicate = folder["id"] != canonical["id"]
                 recommended = "move children to canonical and trash empty duplicate" if is_duplicate else "keep canonical"
+                result = {"status": "canonical", "message": "Canonical folder kept."}
+                if is_duplicate:
+                    result = self.merge_duplicate_folder(folder, canonical)
+                    results.append(result)
                 audit_rows.append([
                     name,
                     folder["id"],
@@ -195,36 +210,60 @@ class PreparationOps(KnowledgeOps):
                     str(child_count),
                     "duplicate" if is_duplicate else "canonical",
                     recommended,
+                    result["status"],
+                    result["message"],
                     now(),
                 ])
-                if is_duplicate:
-                    result = self.merge_duplicate_folder(folder, canonical)
-                    results.append(result)
 
+        manual = self.manual_results(results)
         reorg_id = self.find_control_spreadsheet("ARTSTUDIO_Reorganization_Plan")
         self.replace_sheet(reorg_id, "Folder Duplicate Audit", FOLDER_AUDIT_HEADERS, audit_rows)
         self.append_tool_run(
             task="Merge duplicate ARTSTUDIO root folders",
-            output=f"Processed {len(results)} duplicate root folders",
-            status="completed",
-            review_required="no",
-            notes="Duplicate folders are trashed only after their children are moved or when already empty.",
+            output=f"Processed {len(results)} duplicate root folders; manual actions required: {len(manual)}",
+            status="completed with manual actions" if manual else "completed",
+            review_required="yes" if manual else "no",
+            notes="Duplicate folders are trashed only after their children are moved or when already empty. Permission gaps are logged for owner action.",
         )
         return results
 
     def merge_duplicate_folder(self, duplicate: Dict[str, Any], canonical: Dict[str, Any]) -> Dict[str, str]:
         children = self.list_children_detailed(duplicate["id"])
         moved = 0
+        move_errors: List[str] = []
         for child in children:
-            if not self.dry_run:
+            if self.dry_run:
+                moved += 1
+                continue
+            try:
                 self.move_file(child["id"], canonical["id"], child.get("parents", [duplicate["id"]]))
-            moved += 1
+                moved += 1
+            except HttpError as exc:
+                move_errors.append(f"{child.get('name')} ({child.get('id')}): {self.http_error_message(exc)}")
+        if move_errors:
+            return {
+                "status": "manual_owner_action_required",
+                "message": (
+                    f"Could not move all children from duplicate folder {duplicate['name']} ({duplicate['id']}) "
+                    f"to canonical {canonical['id']}. Errors: " + "; ".join(move_errors[:5])
+                ),
+            }
         if not self.dry_run:
-            self.services.drive.files().update(
-                fileId=duplicate["id"],
-                body={"trashed": True},
-                supportsAllDrives=True,
-            ).execute()
+            try:
+                self.services.drive.files().update(
+                    fileId=duplicate["id"],
+                    body={"trashed": True},
+                    supportsAllDrives=True,
+                ).execute()
+            except HttpError as exc:
+                return {
+                    "status": "manual_owner_action_required",
+                    "message": (
+                        f"Moved {moved} children into canonical folder {canonical['id']}, but could not trash "
+                        f"duplicate folder {duplicate['name']} ({duplicate['id']}): {self.http_error_message(exc)}. "
+                        "Owner must move this duplicate folder to Drive trash manually or grant ownership/organizer permissions."
+                    ),
+                }
         return {
             "status": "completed",
             "message": f"Merged duplicate folder {duplicate['name']} ({duplicate['id']}) into {canonical['id']}; moved {moved}; trashed duplicate",
@@ -397,6 +436,18 @@ class PreparationOps(KnowledgeOps):
             "Last checked": now(),
         }
         return [row_by_header.get(header, "") for header in MAIN_HEADERS]
+
+    @staticmethod
+    def manual_results(results: List[Dict[str, str]]) -> List[Dict[str, str]]:
+        return [item for item in results if item.get("status") not in {"completed", "canonical"}]
+
+    @staticmethod
+    def http_error_message(exc: HttpError) -> str:
+        try:
+            data = json.loads(exc.content.decode("utf-8"))
+            return data.get("error", {}).get("message") or str(exc)
+        except Exception:
+            return str(exc)
 
     @staticmethod
     def finding_id(prefix: str, object_id: str) -> str:
