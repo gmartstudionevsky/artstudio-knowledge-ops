@@ -33,13 +33,16 @@ jobs:
           test -f docs/secrets.md
           test -f knowledge_ops/__init__.py
           test -f knowledge_ops/native_drive_ops.py
+          test -f knowledge_ops/preparation_ops.py
           test -f .github/workflows/drive-ops.yml
 
       - name: Validate JSON
         run: python -m json.tool config/control-center.json >/tmp/control-center.json
 
       - name: Validate Python syntax
-        run: python -m py_compile knowledge_ops/native_drive_ops.py
+        run: |
+          python -m py_compile knowledge_ops/native_drive_ops.py
+          python -m py_compile knowledge_ops/preparation_ops.py
 
       - name: Install dependencies
         run: pip install -r requirements.txt
@@ -73,6 +76,14 @@ jobs:
           assert ops.artstudio_folder_id == cfg['drive']['artstudioFolderId']
           assert ops.control_center_folder_id == cfg['drive']['controlCenterFolderId']
           PY
+
+      - name: Check preparation command surface
+        run: |
+          set -euo pipefail
+          grep -q 'plan-reorganization' knowledge_ops/preparation_ops.py
+          grep -q 'prepare-and-plan' knowledge_ops/preparation_ops.py
+          grep -q 'complete-prep' knowledge_ops/preparation_ops.py
+          grep -q 'complete-prep' .github/workflows/drive-ops.yml
 
       - name: Check agent spec
         run: |
