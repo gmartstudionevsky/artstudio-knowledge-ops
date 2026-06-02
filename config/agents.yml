@@ -1,6 +1,7 @@
-version: 1
+version: 2
 project: ARTSTUDIO Knowledge Ops
-principle: machine proposes, human approves, automation executes safe actions
+principle: machine proposes, human approves, GitHub-native automation executes safe actions
+runtime: github_actions_service_account
 agents:
   - id: intake-agent
     name: Intake Agent
@@ -37,7 +38,7 @@ agents:
       - detect misplaced files
       - detect naming issues
       - propose move or rename
-      - execute low-risk accepted move or rename
+      - execute low-risk accepted move or rename through GitHub-native Drive Ops
     requires_human_approval:
       - high-risk moves
       - structure changes
@@ -59,6 +60,7 @@ agents:
       - add draft decision recommendations
       - flag missing owners
       - flag stale questions
+      - request GitHub-native validation run
     requires_human_approval:
       - final decision
       - status approved
@@ -108,20 +110,24 @@ agents:
 
   - id: github-ops-agent
     name: GitHub Ops Agent
-    purpose: Maintain automation code, configs, workflows, tests and handoff tasks.
+    purpose: Maintain GitHub-native automation code, configs, workflows, tests, secrets documentation and handoff tasks.
     inputs:
       - GitHub repository
       - Codex Handoff Log
       - Tool Run Log
+      - GitHub Actions run logs
     outputs:
-      - pull_request_or_commit
+      - commit_or_pull_request
       - workflow_status
       - handoff_updates
+      - runtime_policy_updates
     allowed_actions:
-      - update code and config
+      - update Python runtime and config
       - validate workflows
-      - prepare Apps Script deployment
+      - maintain service-account secret documentation
+      - prepare GitHub-native Drive Ops runs
     requires_human_approval:
-      - secrets changes
-      - production deployment
+      - adding or rotating secrets
+      - production execution with dry_run=false
       - destructive automation policy changes
+      - changing service-account access scope
