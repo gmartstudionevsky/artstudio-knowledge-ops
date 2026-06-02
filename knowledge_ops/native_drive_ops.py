@@ -166,8 +166,8 @@ class KnowledgeOps:
         self.append_tool_run(
             task="GitHub-native execute safe actions",
             output=f"Processed {len(results)} executable rows",
-            status="completed with errors" if any(r["status"] == "failed" for r in results) else "completed",
-            review_required="yes" if any(r["status"] == "blocked" for r in results) else "no",
+            status=self.execution_run_status(results),
+            review_required="yes" if self.execution_needs_review(results) else "no",
             notes="Duplicate deletion uses Drive trash only; permanent delete is disabled.",
         )
         return {"processed": len(results), "results": results}
@@ -487,6 +487,19 @@ class KnowledgeOps:
     @staticmethod
     def row_to_item(headers: List[str], row: List[str]) -> Dict[str, str]:
         return {header: row[idx] if idx < len(row) else "" for idx, header in enumerate(headers)}
+
+    @staticmethod
+    def execution_run_status(results: List[Dict[str, str]]) -> str:
+        statuses = {result.get("status") for result in results}
+        if "failed" in statuses:
+            return "completed with errors"
+        if "manual_owner_action_required" in statuses or "blocked" in statuses:
+            return "completed with manual actions"
+        return "completed"
+
+    @staticmethod
+    def execution_needs_review(results: List[Dict[str, str]]) -> bool:
+        return any(result.get("status") in {"blocked", "manual_owner_action_required"} for result in results)
 
 
 def column_name(index: int) -> str:
