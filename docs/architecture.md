@@ -15,15 +15,20 @@ The control center is `00_CONTROL_CENTER` inside the ARTSTUDIO Drive folder. It 
 The primary runtime is:
 
 - GitHub Actions workflow: `.github/workflows/drive-ops.yml`
-- Python entrypoint: `knowledge_ops.native_drive_ops`
+- Python entrypoint: `knowledge_ops.strict_drive_ops`
 - Google auth: `GOOGLE_SERVICE_ACCOUNT_JSON` repository secret
 - Business state: Google Drive and control-center Google Sheets
 
-The workflow can run three operations:
+`knowledge_ops.native_drive_ops` and `knowledge_ops.preparation_ops` remain as base modules. `knowledge_ops.strict_drive_ops` is the workflow entrypoint and overrides delete-like behavior with a logged pending-trash quarantine flow.
+
+The workflow can run these operations:
 
 - `validate-readiness` - check folder/control-file readiness and write a validation sheet.
+- `plan-reorganization` - scan accessible project files and write recommended actions.
+- `prepare-and-plan` - create structure, merge duplicate root folders and write the plan.
+- `complete-prep` - create structure, merge duplicates, plan moves, execute auto-safe rows, validate readiness and log the run.
 - `execute-safe-actions` - execute accepted or auto-safe rows from `ARTSTUDIO_Reorganization_Plan`.
-- `prepare-structure` - create missing canonical folders after legacy rename actions are handled.
+- `prepare-structure` - create missing canonical folders and ensure pending-trash quarantine exists.
 
 ## Canonical Drive Structure
 
@@ -43,6 +48,7 @@ Inside `00_CONTROL_CENTER`:
 
 - `98_Project_Methodology` - Stage 0 methodology and project framing artifacts.
 - `99_Setup_Archive` - bootstrap, setup and historical automation artifacts.
+- `99_Setup_Archive/00_PENDING_TRASH` - temporary quarantine for duplicate or obsolete objects approved for removal from the active structure.
 
 ## Automation Flow
 
@@ -62,13 +68,20 @@ Safe actions are reversible or low-risk when scoped to an explicit object ID and
 - move file or folder into the approved structure;
 - rename file or folder to an approved target name;
 - archive setup or methodology artifacts;
-- trash obvious duplicates.
+- trash obvious duplicates as pending-trash quarantine;
+- quarantine pending trash by explicit object ID.
 
-Trash means Google Drive `files.update(trashed=true)`. Permanent deletion is not allowed.
+Permanent deletion is not allowed. The strict runtime treats delete-like actions as a move to `00_PENDING_TRASH` by default, because service accounts may lack owner-level permission to set another user's file as trashed.
 
 ## Obvious Duplicate Rule
 
-An object can be trashed automatically only when the duplicate check finds a canonical object in the correct folder, the name and MIME type match, no unique content is detected, and the object is not a folder with unique children. Otherwise the action becomes `human review required`.
+An object can be moved to pending-trash quarantine automatically only when the duplicate check finds a canonical object in the correct folder, the name and MIME type match, no unique content is detected, and the object is not a folder with unique children. Otherwise the action becomes `human review required`.
+
+The quarantine move writes:
+
+- row execution status and log in `ARTSTUDIO_Reorganization_Plan`;
+- a dedicated row in `Pending Trash Queue` inside `ARTSTUDIO_Reorganization_Plan`;
+- an execution entry in `ARTSTUDIO_Tool_Run_Log`.
 
 ## Secrets And Access
 
@@ -84,8 +97,8 @@ Optional:
 - `OPENAI_API_KEY`
 - `SLACK_WEBHOOK_URL`
 
-The service account must be shared with the ARTSTUDIO root folder and `00_CONTROL_CENTER` as Editor.
+The service account must be shared with the ARTSTUDIO root folder, `00_CONTROL_CENTER`, control spreadsheets and any project files outside ARTSTUDIO that need to be reorganized. Editor access is enough for most moves and sheet updates, but owner-level Drive trash may still be unavailable; this is why pending-trash quarantine is the default.
 
 ## Audit Trail
 
-Every meaningful run must update Tool Run Log. Every structural or policy decision must be recorded in Decision Log. Automation recommendations are written to Reorganization Plan before execution.
+Every meaningful run must update Tool Run Log. Every structural or policy decision must be recorded in Decision Log. Automation recommendations are written to Reorganization Plan before execution. Delete-like actions must also appear in `Pending Trash Queue`.
