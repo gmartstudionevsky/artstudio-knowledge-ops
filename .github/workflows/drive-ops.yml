@@ -58,7 +58,7 @@ jobs:
           print('service account json looks valid for', data['client_email'])
           PY
 
-      - name: Run Drive operation
+      - name: Run strict Drive operation
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           GOOGLE_DELEGATED_USER: ${{ secrets.GOOGLE_DELEGATED_USER }}
@@ -72,12 +72,7 @@ jobs:
             args="$args --dry-run"
           fi
 
-          if [ "$command" = "plan-reorganization" ] || [ "$command" = "prepare-and-plan" ] || [ "$command" = "complete-prep" ]; then
-            module="knowledge_ops.preparation_ops"
-          else
-            module="knowledge_ops.native_drive_ops"
-          fi
-
+          module="knowledge_ops.strict_drive_ops"
           echo "Running $module $args"
           python -m "$module" $args | tee /tmp/drive-ops-result.json
           {
@@ -86,6 +81,7 @@ jobs:
             echo "- Command: $command"
             echo "- Dry run: ${{ github.event.inputs.dry_run }}"
             echo "- Module: $module"
+            echo "- Pending trash mode: strict logged quarantine"
             echo ""
             echo '```json'
             cat /tmp/drive-ops-result.json
