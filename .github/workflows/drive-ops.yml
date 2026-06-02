@@ -1,0 +1,70 @@
+name: GitHub-native Drive Ops
+
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: "Operation to run"
+        required: true
+        default: "validate-readiness"
+        type: choice
+        options:
+          - validate-readiness
+          - execute-safe-actions
+          - prepare-structure
+      dry_run:
+        description: "Run without writing to Google Drive/Sheets"
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+
+permissions:
+  contents: read
+
+jobs:
+  drive-ops:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Validate required secret
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          set -euo pipefail
+          test -n "$GOOGLE_SERVICE_ACCOUNT_JSON"
+          python - <<'PY'
+          import json, os
+          data = json.loads(os.environ['GOOGLE_SERVICE_ACCOUNT_JSON'])
+          required = ['client_email', 'private_key', 'project_id']
+          missing = [key for key in required if not data.get(key)]
+          if missing:
+              raise SystemExit(f'Missing service account fields: {missing}')
+          print('service account json looks valid for', data['client_email'])
+          PY
+
+      - name: Run Drive operation
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_DELEGATED_USER: ${{ secrets.GOOGLE_DELEGATED_USER }}
+          ARTSTUDIO_FOLDER_ID: ${{ secrets.ARTSTUDIO_FOLDER_ID }}
+          CONTROL_CENTER_FOLDER_ID: ${{ secrets.CONTROL_CENTER_FOLDER_ID }}
+        run: |
+          set -euo pipefail
+          args="${{ github.event.inputs.command }}"
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            args="$args --dry-run"
+          fi
+          python -m knowledge_ops.native_drive_ops $args
