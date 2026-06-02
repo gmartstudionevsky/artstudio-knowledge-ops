@@ -59,6 +59,25 @@ def normalize(value: Any) -> str:
     return str(value or "").strip().lower()
 
 
+def optional_env(name: str, fallback: str) -> str:
+    """Use an environment override only when GitHub Actions provided a non-empty value."""
+    value = os.environ.get(name)
+    if value is None or not value.strip():
+        return fallback
+    return value.strip()
+
+
+def require_drive_id(label: str, value: str) -> str:
+    value = (value or "").strip()
+    if not value:
+        raise RuntimeError(
+            f"{label} is empty. Set it in config/control-center.json or provide a non-empty GitHub secret override."
+        )
+    if value.startswith("http"):
+        raise RuntimeError(f"{label} must be a raw Google Drive folder ID, not a URL: {value}")
+    return value
+
+
 def load_config(path: str) -> Dict[str, Any]:
     with open(path, "r", encoding="utf-8") as fh:
         return json.load(fh)
@@ -94,8 +113,14 @@ class KnowledgeOps:
         self.services = services
         self.dry_run = dry_run
         drive_cfg = config["drive"]
-        self.artstudio_folder_id = os.environ.get("ARTSTUDIO_FOLDER_ID", drive_cfg["artstudioFolderId"])
-        self.control_center_folder_id = os.environ.get("CONTROL_CENTER_FOLDER_ID", drive_cfg["controlCenterFolderId"])
+        self.artstudio_folder_id = require_drive_id(
+            "ARTSTUDIO folder ID",
+            optional_env("ARTSTUDIO_FOLDER_ID", drive_cfg["artstudioFolderId"]),
+        )
+        self.control_center_folder_id = require_drive_id(
+            "CONTROL_CENTER folder ID",
+            optional_env("CONTROL_CENTER_FOLDER_ID", drive_cfg["controlCenterFolderId"]),
+        )
         self._control_files: Dict[str, str] = {}
 
     def prepare_structure(self) -> Dict[str, Any]:
@@ -278,6 +303,7 @@ class KnowledgeOps:
         return current
 
     def list_children(self, parent_id: str, mime_type: Optional[str] = None) -> List[Dict[str, Any]]:
+        parent_id = require_drive_id("Parent folder ID", parent_id)
         query = [f"'{parent_id}' in parents", "trashed = false"]
         if mime_type:
             query.append(f"mimeType = '{mime_type}'")
@@ -291,6 +317,7 @@ class KnowledgeOps:
         return response.get("files", [])
 
     def find_file_in_folder(self, parent_id: str, name: str, mime_type: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        parent_id = require_drive_id("Parent folder ID", parent_id)
         safe_name = name.replace("'", "\\'")
         query = [f"'{parent_id}' in parents", "trashed = false", f"name = '{safe_name}'"]
         if mime_type:
