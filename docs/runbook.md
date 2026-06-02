@@ -26,7 +26,7 @@ Current commands:
 
 The workflow cannot reorganize files it cannot see. Files in the user's My Drive root are visible only if they are shared with the service account or already under a shared folder.
 
-Editor access may still be insufficient to trash a folder object owned by another account. In that case `complete-prep` continues, writes `manual_owner_action_required` in `Folder Duplicate Audit`, and the owner must move that duplicate folder to Drive trash manually or grant stronger ownership/organizer permissions where available.
+Editor access may still be insufficient to trash a folder object owned by another account. In that case `complete-prep` creates or reuses `ARTSTUDIO/00_CONTROL_CENTER/99_Setup_Archive/00_PENDING_TRASH`, moves the object there, and logs `quarantined_pending_trash`. Only if both trash and quarantine move are denied does the run write `manual_owner_action_required`.
 
 ## 2. Repository Validation
 
@@ -83,7 +83,8 @@ Expected result:
 - missing canonical folders are created;
 - duplicate root folders are merged into the canonical folder;
 - empty duplicate folders are moved to Drive trash when permissions allow;
-- permission gaps are logged as manual actions instead of aborting the run;
+- objects that cannot be trashed are moved to `00_CONTROL_CENTER/99_Setup_Archive/00_PENDING_TRASH` and logged as `quarantined_pending_trash`;
+- permission gaps are logged as manual actions only when both trash and quarantine move are denied;
 - accessible project-related files are moved to the target canonical section;
 - `Native GitHub Validation`, `Folder Duplicate Audit` and `Preparation Recommendations` are refreshed;
 - Tool Run Log receives entries for each stage.
@@ -118,7 +119,7 @@ Expected result:
 - canonical folders exist exactly as configured;
 - control files exist;
 - validation sheet `Native GitHub Validation` is refreshed;
-- duplicate root folders are no longer present or are listed as manual owner actions;
+- duplicate root folders are no longer present, are quarantined in `00_PENDING_TRASH`, or are listed as manual owner actions when Drive denies both actions;
 - Tool Run Log has GitHub-native execution entries.
 
 ## 8. Transition To Internal Audit
