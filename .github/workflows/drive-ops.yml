@@ -10,6 +10,9 @@ on:
         type: choice
         options:
           - validate-readiness
+          - plan-reorganization
+          - prepare-and-plan
+          - complete-prep
           - execute-safe-actions
           - prepare-structure
       dry_run:
@@ -63,8 +66,28 @@ jobs:
           CONTROL_CENTER_FOLDER_ID: ${{ secrets.CONTROL_CENTER_FOLDER_ID }}
         run: |
           set -euo pipefail
-          args="${{ github.event.inputs.command }}"
+          command="${{ github.event.inputs.command }}"
+          args="$command"
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
             args="$args --dry-run"
           fi
-          python -m knowledge_ops.native_drive_ops $args
+
+          if [ "$command" = "plan-reorganization" ] || [ "$command" = "prepare-and-plan" ] || [ "$command" = "complete-prep" ]; then
+            module="knowledge_ops.preparation_ops"
+          else
+            module="knowledge_ops.native_drive_ops"
+          fi
+
+          echo "Running $module $args"
+          python -m "$module" $args | tee /tmp/drive-ops-result.json
+          {
+            echo "## GitHub-native Drive Ops result"
+            echo ""
+            echo "- Command: $command"
+            echo "- Dry run: ${{ github.event.inputs.dry_run }}"
+            echo "- Module: $module"
+            echo ""
+            echo '```json'
+            cat /tmp/drive-ops-result.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
