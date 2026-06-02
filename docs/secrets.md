@@ -1,6 +1,6 @@
 # GitHub Secrets And Google Access
 
-This repository now uses GitHub Actions as the primary execution runtime. Google Apps Script is legacy only.
+This repository uses GitHub Actions as the primary execution runtime. Google Apps Script is legacy only.
 
 ## Required Secret
 
@@ -18,7 +18,8 @@ The service account must be shared into the ARTSTUDIO Drive workspace with enoug
 
 - read the ARTSTUDIO root folder;
 - read and create folders under the ARTSTUDIO root folder;
-- read and update files/folders that can be renamed, moved or trashed;
+- read and update files/folders that can be renamed or moved;
+- move delete-candidate objects into `00_CONTROL_CENTER/99_Setup_Archive/00_PENDING_TRASH`;
 - read and update control-center spreadsheets;
 - read Google Docs when document checks are added later.
 
@@ -27,6 +28,9 @@ Minimum practical Drive sharing setup:
 1. Share the ARTSTUDIO root folder with the service account email as Editor.
 2. Share `00_CONTROL_CENTER` and all control-center spreadsheets with the same service account as Editor.
 3. Ensure inherited permissions are not blocked on nested folders that automation must move or rename.
+4. Share project files outside ARTSTUDIO with the service account before expecting workflow discovery or movement.
+
+Editor access may still be insufficient for Drive trash on objects owned by another account. The strict runtime therefore moves approved delete candidates into `00_PENDING_TRASH` and logs them instead of relying on owner-level trash permission.
 
 ## Optional Secrets
 
@@ -59,13 +63,15 @@ Reserved for future notifications after workflow runs. It is not required for th
 ## Recommended First Run
 
 1. Add `GOOGLE_SERVICE_ACCOUNT_JSON`.
-2. Share ARTSTUDIO Drive folders with the service account email.
-3. Run `GitHub-native Drive Ops` with:
+2. Share ARTSTUDIO Drive folders, control spreadsheets and outside project files with the service account email.
+3. Run `Validate knowledge ops`.
+4. Run `GitHub-native Drive Ops` with:
    - `command = validate-readiness`
    - `dry_run = true`
-4. Run `execute-safe-actions` with `dry_run = true`.
-5. Run `execute-safe-actions` with `dry_run = false` only after the dry-run output is clean.
-6. Run `prepare-structure` with `dry_run = false`.
+5. Run `GitHub-native Drive Ops` with:
+   - `command = complete-prep`
+   - `dry_run = false`
+6. Review `ARTSTUDIO_Reorganization_Plan`, especially `Pending Trash Queue`, `Folder Duplicate Audit` and remaining manual rows.
 7. Run `validate-readiness` with `dry_run = false`.
 
 ## Security Rule
