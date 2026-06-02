@@ -23,10 +23,10 @@ from knowledge_ops.native_drive_ops import (
 ROOT_SCAN_TERMS = [
     "ARTSTUDIO",
     "artstudio",
-    "АРТСТУДИО",
-    "Невский",
+    "\u0410\u0420\u0422\u0421\u0422\u0423\u0414\u0418\u041e",
+    "\u041d\u0435\u0432\u0441\u043a\u0438\u0439",
     "Nevsky",
-    "Московский",
+    "\u041c\u043e\u0441\u043a\u043e\u0432\u0441\u043a\u0438\u0439",
     "Moskovsky",
     "M103",
     "RBI PM",
@@ -91,7 +91,7 @@ class PreparationOps(KnowledgeOps):
             ),
             status=status,
             review_required="yes" if manual or validation.get("missingFolders") else "no",
-            notes="Preparation stage uses GitHub-native Drive operations; permission gaps are logged instead of aborting the run.",
+            notes="Preparation stage uses GitHub-native Drive operations; trash failures fall back to pending-trash quarantine.",
         )
         return {
             "duplicateFoldersProcessed": len(duplicate_results),
@@ -223,7 +223,7 @@ class PreparationOps(KnowledgeOps):
             output=f"Processed {len(results)} duplicate root folders; manual actions required: {len(manual)}",
             status="completed with manual actions" if manual else "completed",
             review_required="yes" if manual else "no",
-            notes="Duplicate folders are trashed only after their children are moved or when already empty. Permission gaps are logged for owner action.",
+            notes="Duplicate folders are trashed only after their children are moved or when already empty. Trash failures fall back to pending-trash quarantine.",
         )
         return results
 
@@ -256,12 +256,21 @@ class PreparationOps(KnowledgeOps):
                     supportsAllDrives=True,
                 ).execute()
             except HttpError as exc:
+                quarantine = self.quarantine_pending_trash(
+                    object_id=duplicate["id"],
+                    reason=(
+                        f"Moved {moved} children into canonical folder {canonical['id']}, "
+                        f"but Drive trash failed: {self.http_error_message(exc)}"
+                    ),
+                )
+                if quarantine["status"] == "quarantined_pending_trash":
+                    return quarantine
                 return {
                     "status": "manual_owner_action_required",
                     "message": (
                         f"Moved {moved} children into canonical folder {canonical['id']}, but could not trash "
-                        f"duplicate folder {duplicate['name']} ({duplicate['id']}): {self.http_error_message(exc)}. "
-                        "Owner must move this duplicate folder to Drive trash manually or grant ownership/organizer permissions."
+                        f"or quarantine duplicate folder {duplicate['name']} ({duplicate['id']}). "
+                        f"{quarantine['message']}"
                     ),
                 }
         return {
@@ -299,23 +308,23 @@ class PreparationOps(KnowledgeOps):
             return "00_CONTROL_CENTER/99_Setup_Archive", "Legacy setup/control-center artifact.", "low"
         if name.startswith("ARTSTUDIO Base"):
             return "00_CONTROL_CENTER/98_Project_Methodology", "Stage 0 methodology/base artifact.", "low"
-        if any(token in lower for token in ["brand", "бренд", "art_for_apart", "00_artstudio", "rbi pm"]):
+        if any(token in lower for token in ["brand", "\u0431\u0440\u0435\u043d\u0434", "art_for_apart", "00_artstudio", "rbi pm"]):
             return "02_Brand_Context", "Brand or positioning material.", "low"
-        if any(token in lower for token in ["описание", "номерного фонда", "классифика", "кондиционер", "котёл", "котел", "счётчик", "счетчик"]):
+        if any(token in lower for token in ["\u043e\u043f\u0438\u0441\u0430\u043d\u0438\u0435", "\u043d\u043e\u043c\u0435\u0440\u043d\u043e\u0433\u043e \u0444\u043e\u043d\u0434\u0430", "\u043a\u043b\u0430\u0441\u0441\u0438\u0444\u0438\u043a\u0430", "\u043a\u043e\u043d\u0434\u0438\u0446\u0438\u043e\u043d\u0435\u0440", "\u043a\u043e\u0442\u0451\u043b", "\u043a\u043e\u0442\u0435\u043b", "\u0441\u0447\u0451\u0442\u0447\u0438\u043a", "\u0441\u0447\u0435\u0442\u0447\u0438\u043a"]):
             return "03_Object_Data", "Object/property factual material.", "low"
-        if any(token in lower for token in ["sop", "стандарт", "процедура", "регистрационная", "юкасс", "заезд", "высел", "жалоб", "прожив", "faq", "частые", "инструкция", "маршрут", "памятка"]):
+        if any(token in lower for token in ["sop", "\u0441\u0442\u0430\u043d\u0434\u0430\u0440\u0442", "\u043f\u0440\u043e\u0446\u0435\u0434\u0443\u0440\u0430", "\u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u043e\u043d\u043d\u0430\u044f", "\u044e\u043a\u0430\u0441\u0441", "\u0437\u0430\u0435\u0437\u0434", "\u0432\u044b\u0441\u0435\u043b", "\u0436\u0430\u043b\u043e\u0431", "\u043f\u0440\u043e\u0436\u0438\u0432", "faq", "\u0447\u0430\u0441\u0442\u044b\u0435", "\u0438\u043d\u0441\u0442\u0440\u0443\u043a\u0446\u0438\u044f", "\u043c\u0430\u0440\u0448\u0440\u0443\u0442", "\u043f\u0430\u043c\u044f\u0442\u043a\u0430"]):
             return "04_Standards_SOP", "Operational standard, SOP, instruction or template.", "low"
-        if mime_type == "text/html" or any(token in lower for token in ["официальный сайт", "сайт", "e-book", "книга гостя", "guest book", "интернет-магазин"]):
+        if mime_type == "text/html" or any(token in lower for token in ["\u043e\u0444\u0438\u0446\u0438\u0430\u043b\u044c\u043d\u044b\u0439 \u0441\u0430\u0439\u0442", "\u0441\u0430\u0439\u0442", "e-book", "\u043a\u043d\u0438\u0433\u0430 \u0433\u043e\u0441\u0442\u044f", "guest book", "\u0438\u043d\u0442\u0435\u0440\u043d\u0435\u0442-\u043c\u0430\u0433\u0430\u0437\u0438\u043d"]):
             return "05_Official_Sites", "Guest-facing web/site/e-book material.", "low"
-        if any(token in lower for token in ["ota", "travel", "экстранет", "экстранетов"]):
+        if any(token in lower for token in ["ota", "travel", "\u044d\u043a\u0441\u0442\u0440\u0430\u043d\u0435\u0442", "\u044d\u043a\u0441\u0442\u0440\u0430\u043d\u0435\u0442\u043e\u0432"]):
             return "06_OTA", "OTA or extranet material.", "low"
-        if any(token in lower for token in ["review", "отзыв", "feedback"]):
+        if any(token in lower for token in ["review", "\u043e\u0442\u0437\u044b\u0432", "feedback"]):
             return "07_Reviews", "Review or guest feedback material.", "low"
-        if any(token in lower for token in ["договор", "legal", "юрид", "выписка", "печать", "подпись"]):
+        if any(token in lower for token in ["\u0434\u043e\u0433\u043e\u0432\u043e\u0440", "legal", "\u044e\u0440\u0438\u0434", "\u0432\u044b\u043f\u0438\u0441\u043a\u0430", "\u043f\u0435\u0447\u0430\u0442\u044c", "\u043f\u043e\u0434\u043f\u0438\u0441\u044c"]):
             return "08_Legal_Files", "Legal or formal document.", "medium"
-        if any(token in lower for token in ["собствен", "owner", "investor", "инвест", "мотивац", "сотрудничеств"]):
+        if any(token in lower for token in ["\u0441\u043e\u0431\u0441\u0442\u0432\u0435\u043d", "owner", "investor", "\u0438\u043d\u0432\u0435\u0441\u0442", "\u043c\u043e\u0442\u0438\u0432\u0430\u0446", "\u0441\u043e\u0442\u0440\u0443\u0434\u043d\u0438\u0447\u0435\u0441\u0442\u0432"]):
             return "09_Owner_Investor", "Owner/investor material.", "low"
-        if any(token in lower for token in ["competitor", "конкур", "market", "рынок"]):
+        if any(token in lower for token in ["competitor", "\u043a\u043e\u043d\u043a\u0443\u0440", "market", "\u0440\u044b\u043d\u043e\u043a"]):
             return "10_Competitors_Market", "Competitor or market context.", "low"
         return None, "No matching rule.", "medium"
 
@@ -439,7 +448,7 @@ class PreparationOps(KnowledgeOps):
 
     @staticmethod
     def manual_results(results: List[Dict[str, str]]) -> List[Dict[str, str]]:
-        return [item for item in results if item.get("status") not in {"completed", "canonical"}]
+        return [item for item in results if item.get("status") not in {"completed", "canonical", "quarantined_pending_trash"}]
 
     @staticmethod
     def http_error_message(exc: HttpError) -> str:
