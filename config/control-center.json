@@ -35,6 +35,9 @@
     "mode": "auto_safe_actions",
     "permanentDeleteAllowed": false,
     "trashObviousDuplicatesAllowed": true,
+    "pendingTrashFallbackAllowed": true,
+    "pendingTrashPath": "ARTSTUDIO/00_CONTROL_CENTER/99_Setup_Archive/00_PENDING_TRASH",
+    "pendingTrashStatus": "quarantined_pending_trash",
     "allowedAutoSafeActions": [
       "create folder",
       "move file",
@@ -43,7 +46,8 @@
       "rename folder",
       "archive setup artifact",
       "move methodology file",
-      "trash duplicate"
+      "trash duplicate",
+      "quarantine pending trash"
     ],
     "humanDecisionRequiredFor": [
       "permanent deletion",
@@ -61,7 +65,8 @@
       "requiresSameMimeType": true,
       "requiresNoUniqueContentDetected": true,
       "folderMustBeEmpty": true,
-      "execution": "Drive trash via files.update(trashed=true), never permanent delete"
+      "execution": "Drive trash via files.update(trashed=true), never permanent delete",
+      "fallbackExecution": "If Drive trash is denied, move the object to ARTSTUDIO/00_CONTROL_CENTER/99_Setup_Archive/00_PENDING_TRASH and log quarantined_pending_trash. If both trash and move are denied, log manual_owner_action_required."
     }
   },
   "requiredSecrets": [
