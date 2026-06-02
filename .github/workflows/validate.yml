@@ -6,6 +6,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -13,31 +16,45 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
       - name: Check required files
         run: |
           set -euo pipefail
           test -f README.md
+          test -f requirements.txt
           test -f config/control-center.json
           test -f config/agents.yml
           test -f docs/architecture.md
           test -f docs/runbook.md
-          test -f apps-script/control-center/control_center_sealing.gs
-          test -f apps-script/control-center/appsscript.json
+          test -f docs/secrets.md
+          test -f knowledge_ops/__init__.py
+          test -f knowledge_ops/native_drive_ops.py
+          test -f .github/workflows/drive-ops.yml
 
       - name: Validate JSON
-        run: |
-          python -m json.tool config/control-center.json >/tmp/control-center.json
-          python -m json.tool apps-script/control-center/appsscript.json >/tmp/appsscript.json
+        run: python -m json.tool config/control-center.json >/tmp/control-center.json
 
-      - name: Check Apps Script entrypoints
+      - name: Validate Python syntax
+        run: python -m py_compile knowledge_ops/native_drive_ops.py
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Check native runtime config
         run: |
-          set -euo pipefail
-          script=apps-script/control-center/control_center_sealing.gs
-          grep -q 'function mainPrepareDriveStructure' "$script"
-          grep -q 'function mainAuditOnly' "$script"
-          grep -q 'function mainExecuteSafeActions' "$script"
-          grep -q 'function mainValidateStageTwoReadiness' "$script"
-          grep -q 'setTrashed(true)' "$script"
+          python - <<'PY'
+          import json
+          cfg = json.load(open('config/control-center.json', encoding='utf-8'))
+          assert cfg['runtime']['primary'] == 'github_actions_service_account'
+          assert cfg['runtime']['appsScriptAllowed'] is False
+          assert 'GOOGLE_SERVICE_ACCOUNT_JSON' in cfg['requiredSecrets']
+          assert cfg['automationPolicy']['permanentDeleteAllowed'] is False
+          assert cfg['automationPolicy']['trashObviousDuplicatesAllowed'] is True
+          PY
 
       - name: Check agent spec
         run: |
