@@ -26,6 +26,8 @@ Current commands:
 
 The workflow cannot reorganize files it cannot see. Files in the user's My Drive root are visible only if they are shared with the service account or already under a shared folder.
 
+Editor access may still be insufficient to trash a folder object owned by another account. In that case `complete-prep` continues, writes `manual_owner_action_required` in `Folder Duplicate Audit`, and the owner must move that duplicate folder to Drive trash manually or grant stronger ownership/organizer permissions where available.
+
 ## 2. Repository Validation
 
 Run GitHub Actions workflow `Validate knowledge ops`.
@@ -80,7 +82,8 @@ Expected result:
 
 - missing canonical folders are created;
 - duplicate root folders are merged into the canonical folder;
-- empty duplicate folders are moved to Drive trash, not permanently deleted;
+- empty duplicate folders are moved to Drive trash when permissions allow;
+- permission gaps are logged as manual actions instead of aborting the run;
 - accessible project-related files are moved to the target canonical section;
 - `Native GitHub Validation`, `Folder Duplicate Audit` and `Preparation Recommendations` are refreshed;
 - Tool Run Log receives entries for each stage.
@@ -115,7 +118,7 @@ Expected result:
 - canonical folders exist exactly as configured;
 - control files exist;
 - validation sheet `Native GitHub Validation` is refreshed;
-- duplicate root folders are no longer present;
+- duplicate root folders are no longer present or are listed as manual owner actions;
 - Tool Run Log has GitHub-native execution entries.
 
 ## 8. Transition To Internal Audit
