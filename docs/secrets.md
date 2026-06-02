@@ -30,6 +30,8 @@ Minimum practical Drive sharing setup:
 
 ## Optional Secrets
 
+Optional secrets may be omitted. Empty optional values are ignored by the runtime, so the workflow falls back to `config/control-center.json`.
+
 ### `GOOGLE_DELEGATED_USER`
 
 Use only if Google Workspace domain-wide delegation is configured and the service account must impersonate a real workspace user. This is useful when Drive permissions are easier to manage through one delegated user.
