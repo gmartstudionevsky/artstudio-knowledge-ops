@@ -4,9 +4,26 @@
 
 Google Drive is the business knowledge base. It stores source materials, working documents, indexes, decision logs and operational context.
 
-GitHub is the automation source of truth. It stores Apps Script code, configuration, workflow definitions, runbooks and agent specifications.
+GitHub is both the automation source of truth and the native execution environment. It stores configuration, workflow definitions, runbooks, agent specifications and the Python runtime that operates against Google Drive and Google Sheets through a service account.
+
+Apps Script is legacy only. It can remain as historical reference, but the controlled execution path is GitHub Actions.
 
 The control center is `00_CONTROL_CENTER` inside the ARTSTUDIO Drive folder. It is not the whole knowledge base; it is the governance layer that keeps the knowledge base navigable, auditable and automatable.
+
+## Native Execution Model
+
+The primary runtime is:
+
+- GitHub Actions workflow: `.github/workflows/drive-ops.yml`
+- Python entrypoint: `knowledge_ops.native_drive_ops`
+- Google auth: `GOOGLE_SERVICE_ACCOUNT_JSON` repository secret
+- Business state: Google Drive and control-center Google Sheets
+
+The workflow can run three operations:
+
+- `validate-readiness` - check folder/control-file readiness and write a validation sheet.
+- `execute-safe-actions` - execute accepted or auto-safe rows from `ARTSTUDIO_Reorganization_Plan`.
+- `prepare-structure` - create missing canonical folders after legacy rename actions are handled.
 
 ## Canonical Drive Structure
 
@@ -35,11 +52,11 @@ Inside `00_CONTROL_CENTER`:
 4. QA Agent checks duplicates, contradictions and unique content risk.
 5. Governance Agent checks owners, statuses, decisions and open questions.
 6. Human approval is required for high-risk or meaning-changing actions.
-7. Apps Script executes safe approved actions and writes execution logs.
+7. GitHub Actions executes safe approved actions and writes execution logs.
 
 ## Safe Actions
 
-Safe actions are actions that are reversible or low-risk when they are scoped to an explicit object ID and logged:
+Safe actions are reversible or low-risk when scoped to an explicit object ID and logged:
 
 - create missing canonical folder;
 - move file or folder into the approved structure;
@@ -47,16 +64,27 @@ Safe actions are actions that are reversible or low-risk when they are scoped to
 - archive setup or methodology artifacts;
 - trash obvious duplicates.
 
-Trash means `setTrashed(true)` in Google Drive. Permanent deletion is not allowed.
+Trash means Google Drive `files.update(trashed=true)`. Permanent deletion is not allowed.
 
 ## Obvious Duplicate Rule
 
 An object can be trashed automatically only when the duplicate check finds a canonical object in the correct folder, the name and MIME type match, no unique content is detected, and the object is not a folder with unique children. Otherwise the action becomes `human review required`.
 
-## GitHub Workflows
+## Secrets And Access
 
-- `validate.yml` checks required files, validates JSON and performs basic Apps Script sanity checks.
-- `deploy-apps-script.yml` is manual and requires repository secrets for clasp-based deployment.
+Required:
+
+- `GOOGLE_SERVICE_ACCOUNT_JSON`
+
+Optional:
+
+- `GOOGLE_DELEGATED_USER`
+- `ARTSTUDIO_FOLDER_ID`
+- `CONTROL_CENTER_FOLDER_ID`
+- `OPENAI_API_KEY`
+- `SLACK_WEBHOOK_URL`
+
+The service account must be shared with the ARTSTUDIO root folder and `00_CONTROL_CENTER` as Editor.
 
 ## Audit Trail
 
