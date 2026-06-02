@@ -11,6 +11,7 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
 SCOPES = [
     "https://www.googleapis.com/auth/drive",
@@ -20,6 +21,7 @@ SCOPES = [
 
 FOLDER_MIME = "application/vnd.google-apps.folder"
 SHEETS_MIME = "application/vnd.google-apps.spreadsheet"
+PENDING_TRASH_FOLDER_NAME = "00_PENDING_TRASH"
 
 MAIN_HEADERS = [
     "Action ID", "Current file / folder", "Current location", "Problem",
@@ -275,9 +277,16 @@ class KnowledgeOps:
             return {"status": "blocked", "message": "Duplicate is not obvious; human review required."}
         if normalize(item.get("Object type")) == "folder" and not self.is_folder_empty(object_id):
             return {"status": "blocked", "message": "Folder is not empty; human review required."}
-        if not self.dry_run:
+        if self.dry_run:
+            return {"status": "completed", "message": "Dry run: duplicate would be moved to Drive trash."}
+        try:
             self.services.drive.files().update(fileId=object_id, body={"trashed": True}, supportsAllDrives=True).execute()
-        return {"status": "completed", "message": "Moved duplicate to Drive trash."}
+            return {"status": "completed", "message": "Moved duplicate to Drive trash."}
+        except HttpError as exc:
+            return self.quarantine_pending_trash(
+                object_id=object_id,
+                reason=f"Drive trash failed for obvious duplicate: {self.http_error_message(exc)}",
+            )
 
     def get_or_create_folder(self, parent_id: str, name: str) -> Tuple[str, bool]:
         existing = self.find_file_in_folder(parent_id, name, mime_type=FOLDER_MIME)
@@ -301,6 +310,54 @@ class KnowledgeOps:
             else:
                 current, _ = self.get_or_create_folder(current, part)
         return current
+
+    def pending_trash_folder_id(self) -> str:
+        policy = self.config.get("automationPolicy", {})
+        path = policy.get(
+            "pendingTrashPath",
+            f"ARTSTUDIO/00_CONTROL_CENTER/99_Setup_Archive/{PENDING_TRASH_FOLDER_NAME}",
+        )
+        return self.resolve_folder_path(path)
+
+    def quarantine_pending_trash(self, object_id: str, reason: str) -> Dict[str, str]:
+        try:
+            metadata = self.services.drive.files().get(
+                fileId=object_id,
+                fields="id,name,parents",
+                supportsAllDrives=True,
+            ).execute()
+            previous_parents = ",".join(metadata.get("parents", []))
+            pending_parent = self.pending_trash_folder_id()
+            self.services.drive.files().update(
+                fileId=object_id,
+                addParents=pending_parent,
+                removeParents=previous_parents,
+                fields="id,parents",
+                supportsAllDrives=True,
+            ).execute()
+            return {
+                "status": "quarantined_pending_trash",
+                "message": (
+                    f"Trash failed; moved {metadata.get('name', object_id)} ({object_id}) "
+                    f"to pending trash folder {pending_parent}. Reason: {reason}"
+                ),
+            }
+        except HttpError as exc:
+            return {
+                "status": "manual_owner_action_required",
+                "message": (
+                    f"Trash failed and pending-trash quarantine failed for {object_id}. "
+                    f"Trash reason: {reason}. Quarantine reason: {self.http_error_message(exc)}"
+                ),
+            }
+
+    @staticmethod
+    def http_error_message(exc: HttpError) -> str:
+        try:
+            data = json.loads(exc.content.decode("utf-8"))
+            return data.get("error", {}).get("message") or str(exc)
+        except Exception:
+            return str(exc)
 
     def list_children(self, parent_id: str, mime_type: Optional[str] = None) -> List[Dict[str, Any]]:
         parent_id = require_drive_id("Parent folder ID", parent_id)
