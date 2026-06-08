@@ -1,0 +1,104 @@
+vision:
+  label_detection:
+    unit: image
+    free_tier_units: 1000
+    unit_size: 1000
+    price_per_unit_usd: 1.50
+    currency: USD
+    notes: Estimate only; verify current Google Cloud Pricing before real use.
+    effective_date: "2026-06-08"
+    source_url: "https://cloud.google.com/vision/pricing"
+    manually_reviewed: false
+  text_detection:
+    unit: image_or_page
+    free_tier_units: 1000
+    unit_size: 1000
+    price_per_unit_usd: 1.50
+    currency: USD
+    notes: Estimate only.
+    effective_date: "2026-06-08"
+    source_url: "https://cloud.google.com/vision/pricing"
+    manually_reviewed: false
+  document_text_detection:
+    unit: image_or_page
+    free_tier_units: 1000
+    unit_size: 1000
+    price_per_unit_usd: 1.50
+    currency: USD
+    notes: Estimate only.
+    effective_date: "2026-06-08"
+    source_url: "https://cloud.google.com/vision/pricing"
+    manually_reviewed: false
+document_ai:
+  enterprise_document_ocr:
+    unit: page
+    free_tier_units: 0
+    unit_size: 1000
+    price_per_unit_usd: 1.50
+    currency: USD
+    notes: Estimate only.
+    effective_date: "2026-06-08"
+    source_url: "https://cloud.google.com/document-ai/pricing"
+    manually_reviewed: false
+  layout_parser:
+    unit: page
+    free_tier_units: 0
+    unit_size: 1000
+    price_per_unit_usd: 10.00
+    currency: USD
+    notes: Estimate only.
+    effective_date: "2026-06-08"
+    source_url: "https://cloud.google.com/document-ai/pricing"
+    manually_reviewed: false
+  form_parser:
+    unit: page
+    free_tier_units: 0
+    unit_size: 1000
+    price_per_unit_usd: 30.00
+    currency: USD
+    notes: Requires explicit approval.
+    effective_date: "2026-06-08"
+    source_url: "https://cloud.google.com/document-ai/pricing"
+    manually_reviewed: false
+video_intelligence:
+  label_detection:
+    unit: minute
+    free_tier_units: 1000
+    unit_size: 1
+    price_per_unit_usd: 0.10
+    currency: USD
+    notes: Estimate only.
+    effective_date: "2026-06-08"
+    source_url: "https://cloud.google.com/video-intelligence/pricing"
+    manually_reviewed: false
+  shot_change_detection:
+    unit: minute
+    free_tier_units: 1000
+    unit_size: 1
+    price_per_unit_usd: 0.05
+    currency: USD
+    notes: Estimate only.
+    effective_date: "2026-06-08"
+    source_url: "https://cloud.google.com/video-intelligence/pricing"
+    manually_reviewed: false
+  text_detection:
+    unit: minute
+    free_tier_units: 1000
+    unit_size: 1
+    price_per_unit_usd: 0.15
+    currency: USD
+    notes: Estimate only.
+    effective_date: "2026-06-08"
+    source_url: "https://cloud.google.com/video-intelligence/pricing"
+    manually_reviewed: false
+speech_to_text:
+  standard_batch:
+    unit: minute
+    free_tier_units: 0
+    unit_size: 1
+    price_per_unit_usd: 0.003
+    currency: USD
+    notes: Estimate only.
+    effective_date: "2026-06-08"
+    source_url: "https://cloud.google.com/speech-to-text/pricing"
+    manually_reviewed: false

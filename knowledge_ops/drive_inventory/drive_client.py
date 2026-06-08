@@ -71,6 +71,27 @@ class DriveInventoryClient:
         request = self.service.files().get_media(fileId=file_obj["id"])
         return self._download_hash(request)
 
+    def download_bytes(self, file_obj: Dict[str, Any], max_bytes: int) -> bytes:
+        size = int(file_obj.get("size") or 0)
+        if size and size > max_bytes:
+            raise ValueError(f"file_too_large:{size}>{max_bytes}")
+        request = self.service.files().get_media(fileId=file_obj["id"])
+        fh = io.BytesIO()
+        downloader = MediaIoBaseDownload(fh, request)
+        done = False
+        while not done:
+            _status, done = downloader.next_chunk()
+            if fh.tell() > max_bytes:
+                raise ValueError(f"file_too_large:{fh.tell()}>{max_bytes}")
+        return fh.getvalue()
+
+    def export_text(self, file_obj: Dict[str, Any], max_bytes: int) -> str:
+        if file_obj.get("mimeType") == SHEETS_MIME:
+            raise ValueError("google_sheets_skipped")
+        request = self.service.files().export_media(fileId=file_obj["id"], mimeType="text/plain")
+        data = self._download_bytes_request(request, max_bytes)
+        return data.decode("utf-8", errors="replace")
+
     def calculate_export_hash(self, file_obj: Dict[str, Any]) -> str:
         mime_type = file_obj.get("mimeType", "")
         if mime_type == SHEETS_MIME:
@@ -82,14 +103,18 @@ class DriveInventoryClient:
         return self._download_hash(request)
 
     def _download_hash(self, request: Any) -> str:
+        data = self._download_bytes_request(request, self.config.max_download_bytes)
+        return hashlib.sha256(data).hexdigest()
+
+    def _download_bytes_request(self, request: Any, max_bytes: int) -> bytes:
         fh = io.BytesIO()
         downloader = MediaIoBaseDownload(fh, request)
         done = False
         while not done:
             _status, done = downloader.next_chunk()
-            if fh.tell() > self.config.max_download_bytes:
-                return ""
-        return hashlib.sha256(fh.getvalue()).hexdigest()
+            if fh.tell() > max_bytes:
+                raise ValueError(f"file_too_large:{fh.tell()}>{max_bytes}")
+        return fh.getvalue()
 
     def _iter_files(self, kwargs: Dict[str, Any], max_files: int = 0) -> Iterator[Dict[str, Any]]:
         count = 0

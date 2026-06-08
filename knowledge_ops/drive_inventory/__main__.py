@@ -30,6 +30,15 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--include-google-export-hash", action="store_true")
     parser.add_argument("--include-media-hash", action="store_true")
     parser.add_argument("--include-perceptual-image-hash", action="store_true")
+    parser.add_argument("--enable-content-inspection", default="true")
+    parser.add_argument("--content-char-limit", type=int, default=None)
+    parser.add_argument("--content-page-limit", type=int, default=None)
+    parser.add_argument("--max-download-size-mb", type=int, default=None)
+    parser.add_argument("--enable-ocr", default="false")
+    parser.add_argument("--enable-excel-content-inspection", default="true")
+    parser.add_argument("--store-content-preview", default="false")
+    parser.add_argument("--store-sensitive-snippets", default="false")
+    parser.add_argument("--content-rules-config", default="")
     parser.add_argument("--safe-mode", default="true")
     args = parser.parse_args(argv)
 
@@ -45,6 +54,15 @@ def main(argv: Optional[List[str]] = None) -> int:
         include_google_export_hash=args.include_google_export_hash or config.include_google_export_hash,
         include_media_hash=args.include_media_hash or config.include_media_hash,
         include_perceptual_image_hash=args.include_perceptual_image_hash or config.include_perceptual_image_hash,
+        enable_content_inspection=as_bool(args.enable_content_inspection),
+        content_char_limit=args.content_char_limit if args.content_char_limit is not None else config.content_char_limit,
+        content_page_limit=args.content_page_limit if args.content_page_limit is not None else config.content_page_limit,
+        max_download_size_mb=args.max_download_size_mb if args.max_download_size_mb is not None else config.max_download_size_mb,
+        enable_ocr=as_bool(args.enable_ocr),
+        enable_excel_content_inspection=as_bool(args.enable_excel_content_inspection),
+        store_content_preview=as_bool(args.store_content_preview),
+        store_sensitive_snippets=as_bool(args.store_sensitive_snippets),
+        content_rules_config=args.content_rules_config or config.content_rules_config,
         safe_mode=as_bool(args.safe_mode),
         cache_dir=args.cache or config.cache_dir,
     )
@@ -52,6 +70,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         raise RuntimeError("Drive inventory is read-only. --dry-run must remain true for this first-stage contour.")
     if not config.skip_google_sheets:
         raise RuntimeError("Google Sheets must be skipped in the first-stage inventory.")
+    if config.store_sensitive_snippets:
+        raise RuntimeError("Sensitive snippets must not be stored in the first-stage inventory.")
 
     out_dir = Path(args.out_dir)
     run_log = out_dir / "run_log.jsonl"

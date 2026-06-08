@@ -1,0 +1,156 @@
+rules:
+  - rule_id: legal_contract_core
+    category: legal_contract
+    keywords: ["договор", "стороны договора", "предмет договора", "срок действия договора", "подписи сторон"]
+    regex_patterns: ["\\b(арендодатель|арендатор|исполнитель|заказчик|собственник)\\b", "\\bИНН\\s*[:№]?\\s*\\d{10,12}\\b", "\\bБИК\\s*[:№]?\\s*\\d{9}\\b"]
+    weight: 5
+    target_fields:
+      document_type_suggestion: договор
+      department_suggestion: юридический блок
+      process_suggestion: договор управления / аренды
+      audience_suggestion: внутреннее использование
+    sensitivity_flags: ["legal_contract", "inn", "bank_details"]
+    explanation: "Договорные формулировки, стороны и реквизиты."
+  - rule_id: acts_core
+    category: act
+    keywords: ["акт приёма-передачи", "акт приема-передачи", "акт возврата", "акт выполненных работ", "акт оказанных услуг", "передал", "принял"]
+    regex_patterns: ["\\bакт\\s+(при[её]ма-передачи|возврата|выполненных работ|оказанных услуг)\\b"]
+    weight: 4
+    target_fields:
+      document_type_suggestion: акт
+      department_suggestion: документооборот
+    sensitivity_flags: ["legal_contract"]
+    explanation: "Актовые формулировки и признаки передачи/приёмки."
+  - rule_id: owner_relations
+    category: owner_data
+    keywords: ["собственник", "апартамент", "ПИБ", "кадастровый номер", "реестр в управлении", "договор управления", "доход собственника", "удержание из дохода", "равный доход", "динамический доход"]
+    regex_patterns: ["\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"]
+    weight: 5
+    target_fields:
+      department_suggestion: собственники / owner relations
+      process_suggestion: собственники в управлении
+      audience_suggestion: собственники
+    sensitivity_flags: ["owner_data", "cadastral_number"]
+    explanation: "Материалы по собственникам, апартаментам или кадастру."
+  - rule_id: guest_front_office
+    category: guest_front_office
+    keywords: ["гость", "заселение", "выезд", "check-in", "check-out", "регистрация", "миграционный учёт", "правила проживания", "карта гостя", "ключ-карта", "ресепшен", "администратор", "Fidelio", "TravelLine", "бронирование"]
+    weight: 4
+    target_fields:
+      department_suggestion: СПиР / Front Office / Reception
+      process_suggestion: check-in
+      audience_suggestion: сотрудники СПиР
+    sensitivity_flags: ["guest_data"]
+    explanation: "Операционные маркеры гостей, заезда, выезда и СПиР."
+  - rule_id: housekeeping
+    category: housekeeping
+    keywords: ["уборка", "горничная", "супервайзер", "номерной фонд", "комплектация номера", "чек-лист уборки", "linen", "бельё", "белье", "полотенца", "расходники", "minibar"]
+    weight: 3
+    target_fields:
+      department_suggestion: ХСК / housekeeping
+      process_suggestion: уборка
+    explanation: "Маркеры housekeeping и чек-листов уборки."
+  - rule_id: engineering
+    category: engineering
+    keywords: ["заявка", "TeamJet", "инженер", "неисправность", "ремонт", "техническое обслуживание", "вентиляция", "электрика", "сантехника", "кондиционер", "оборудование", "ППР", "дефектная ведомость"]
+    weight: 3
+    target_fields:
+      department_suggestion: ИТС / инженерная служба
+      process_suggestion: техническая заявка
+    sensitivity_flags: ["technical"]
+    explanation: "Техническая служба, заявки, ремонт и оборудование."
+  - rule_id: fire_security
+    category: fire_security
+    keywords: ["пожар", "эвакуация", "СОУЭ", "АПС", "сигнал пожар", "пожар 2", "МЧС", "охрана", "пропускной режим", "доступ", "видеонаблюдение"]
+    weight: 4
+    target_fields:
+      department_suggestion: безопасность / охрана / пожарная безопасность
+      process_suggestion: пожарная безопасность
+    sensitivity_flags: ["security", "fire_safety"]
+    explanation: "Пожарная безопасность, охрана или доступ."
+  - rule_id: finance_accounting
+    category: finance_accounting
+    keywords: ["счёт", "счет", "счёт-фактура", "счет-фактура", "акт сверки", "оплата", "задолженность", "начисление", "удержание", "выплата", "НДС", "касса", "платёжное поручение", "платежное поручение"]
+    regex_patterns: ["\\b\\d{20}\\b", "\\bБИК\\s*[:№]?\\s*\\d{9}\\b"]
+    weight: 5
+    target_fields:
+      department_suggestion: финансы
+      document_type_suggestion: счёт
+      process_suggestion: финансы
+    sensitivity_flags: ["financial", "bank_details", "bik"]
+    explanation: "Финансовые, бухгалтерские или платёжные маркеры."
+  - rule_id: hr_staff
+    category: hr
+    keywords: ["трудовой договор", "должностная инструкция", "сотрудник", "график работы", "табель", "отпуск", "приказ", "персональные данные работника", "адаптация", "аттестация", "обучение"]
+    weight: 4
+    target_fields:
+      department_suggestion: HR / кадры
+      process_suggestion: HR
+      audience_suggestion: кадры
+    sensitivity_flags: ["employee_data", "personal_data"]
+    explanation: "HR, кадровые документы или данные сотрудников."
+  - rule_id: marketing_brand_media
+    category: marketing_brand_media
+    keywords: ["брендбук", "логотип", "макет", "афиша", "баннер", "рекламная кампания", "SMM", "контент-план", "визуальная концепция", "презентация", "фотосъёмка", "фотосъемка"]
+    weight: 3
+    target_fields:
+      department_suggestion: маркетинг / SMM / бренд
+      process_suggestion: бренд / дизайн / медиа
+    sensitivity_flags: ["brand_sensitive"]
+    explanation: "Маркетинг, бренд или медиа."
+  - rule_id: sop_knowledge_base
+    category: sop_knowledge_base
+    keywords: ["стандарт", "регламент", "SOP", "инструкция", "алгоритм", "чек-лист", "порядок действий", "зона ответственности", "сотрудник обязан", "контроль выполнения", "версия документа"]
+    weight: 4
+    target_fields:
+      document_type_suggestion: SOP
+      process_suggestion: операционные стандарты
+    explanation: "Регламент, SOP, инструкция или база знаний."
+  - rule_id: consumer_mandatory_docs
+    category: mandatory_docs
+    keywords: ["уголок потребителя", "свидетельство", "лицензия", "сертификат", "правила оказания гостиничных услуг", "книга отзывов", "Роспотребнадзор", "обязательная информация"]
+    weight: 4
+    target_fields:
+      document_type_suggestion: лицензии / сертификаты / обязательные документы
+      audience_suggestion: внешние органы / проверяющие
+    sensitivity_flags: ["legal_contract"]
+    explanation: "Обязательные документы и уголок потребителя."
+  - rule_id: object_nevsky
+    category: object_detection
+    keywords: ["ARTSTUDIO Nevsky", "Невский", "2-я Советская", "2 Советская", "2Советская"]
+    weight: 5
+    target_fields:
+      object_suggestion: ARTSTUDIO Nevsky
+    explanation: "Объект ARTSTUDIO Nevsky найден в содержании."
+  - rule_id: object_moskovsky
+    category: object_detection
+    keywords: ["ARTSTUDIO Moskovsky", "Московский", "Заозёрная", "Заозерная"]
+    weight: 5
+    target_fields:
+      object_suggestion: ARTSTUDIO Moskovsky
+    explanation: "Объект ARTSTUDIO Moskovsky найден в содержании."
+  - rule_id: object_m103
+    category: object_detection
+    keywords: ["ARTSTUDIO M103", "М103", "Ташкентская"]
+    weight: 5
+    target_fields:
+      object_suggestion: ARTSTUDIO M103
+    explanation: "Объект ARTSTUDIO M103 найден в содержании."
+  - rule_id: object_rbi_pm
+    category: object_detection
+    keywords: ["RBI PM", "ЭР-БИ-АЙ ПМ", "РБИ ПМ"]
+    weight: 5
+    target_fields:
+      object_suggestion: RBI PM / УК
+    explanation: "RBI PM найден в содержании."
+  - rule_id: personal_data_regex
+    category: sensitivity
+    regex_patterns:
+      - "[A-ZА-Я0-9._%+-]+@[A-ZА-Я0-9.-]+\\.[A-ZА-Я]{2,}"
+      - "(?:\\+7|8)\\s*\\(?\\d{3}\\)?\\s*\\d{3}[-\\s]?\\d{2}[-\\s]?\\d{2}"
+      - "\\b\\d{4}\\s*\\d{6}\\b"
+      - "\\b\\d{3}-\\d{3}-\\d{3}\\s?\\d{2}\\b"
+      - "\\bперсональн\\w+\\s+данн\\w+\\b"
+    weight: 6
+    sensitivity_flags: ["email", "phone", "passport", "snils", "personal_data"]
+    explanation: "Regex-маркеры персональных данных."

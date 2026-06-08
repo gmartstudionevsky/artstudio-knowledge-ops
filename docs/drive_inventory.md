@@ -53,6 +53,13 @@ python -m knowledge_ops.drive_inventory \
 
 Опциональные флаги:
 
+- `--enable-content-inspection true` - извлекать ограниченный текстовый слой и применять rule engine.
+- `--content-char-limit 20000` - максимум символов текста для классификации.
+- `--content-page-limit 20` - максимум страниц/слайдов для PDF/презентаций.
+- `--max-download-size-mb 25` - максимум размера скачивания для content inspection.
+- `--enable-ocr false` - OCR изображений выключен по умолчанию.
+- `--enable-excel-content-inspection true` - читать обычные XLSX, но не native Google Sheets.
+- `--store-content-preview false` и `--store-sensitive-snippets false` - полный текст и чувствительные фрагменты не сохраняются.
 - `--include-content-hash` - считать SHA-256 для обычных файлов в пределах `max_download_bytes`.
 - `--include-google-export-hash` - считать export hash для Google Docs/Slides. Google Sheets всё равно исключаются.
 - `--include-media-hash` - считать content hash для изображений и видео в пределах лимита.
@@ -87,12 +94,15 @@ Workflow `Drive Inventory` запускается только вручную ч
 - `classification_review.csv`
 - `sensitivity_review.csv`
 - `migration_decision_plan.csv`
+- `content_inspection.csv`
+- `content_rule_matches.csv`
+- `content_sensitivity_flags.csv`
 - `drive_structure_tree.md`
 - `audit_report.md`
 - `run_log.jsonl`
 - `errors.csv`
 
-`inventory.xlsx` содержит листы Summary, Inventory, Folders, Skipped Google Sheets, Exact Duplicates, Version Candidates, Semantic Candidates, Classification Review, Sensitivity Review, Migration Decision Plan и Errors.
+`inventory.xlsx` содержит листы Summary, Inventory, Folders, Skipped Google Sheets, Exact Duplicates, Version Candidates, Semantic Candidates, Classification Review, Sensitivity Review, Migration Decision Plan, Content Inspection, Rule Matches, Content Sensitivity и Errors.
 
 ## Как читать статусы и дубли
 
@@ -113,6 +123,7 @@ Workflow `Drive Inventory` запускается только вручную ч
 - Не меняет права.
 - Не меняет metadata в Drive.
 - Не читает и не экспортирует Google Sheets.
+- Не сохраняет полный текст документов или чувствительные snippets по умолчанию.
 - Не даёт рекомендацию `DELETE` на первом этапе.
 
 ## Как использовать результаты

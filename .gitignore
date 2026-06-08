@@ -9,6 +9,11 @@ debug-dumps/
 downloads/
 downloaded-files/
 temporary-exports/
+ocr-text/
+transcripts/
+thumbnails/
+keyframes/
+gcs-staging/
 tmp/
 *.credentials.json
 *credentials*.json

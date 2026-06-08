@@ -61,6 +61,33 @@ on:
         options:
           - "false"
           - "true"
+      enable_content_inspection:
+        description: "Extract limited text layer for rules-based classification"
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - "true"
+          - "false"
+      content_char_limit:
+        description: "Maximum extracted characters used for classification"
+        required: true
+        default: "20000"
+      content_page_limit:
+        description: "Maximum PDF/presentation pages or slides"
+        required: true
+        default: "20"
+      max_download_size_mb:
+        description: "Maximum file download size for content inspection"
+        required: true
+        default: "25"
+      enable_ocr:
+        description: "OCR images; disabled by default"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
 
 permissions:
   contents: read
@@ -112,6 +139,14 @@ jobs:
             --skip-google-sheets "${{ github.event.inputs.skip_google_sheets }}"
             --dry-run true
             --safe-mode true
+            --enable-content-inspection "${{ github.event.inputs.enable_content_inspection }}"
+            --content-char-limit "${{ github.event.inputs.content_char_limit }}"
+            --content-page-limit "${{ github.event.inputs.content_page_limit }}"
+            --max-download-size-mb "${{ github.event.inputs.max_download_size_mb }}"
+            --enable-ocr "${{ github.event.inputs.enable_ocr }}"
+            --enable-excel-content-inspection true
+            --store-content-preview false
+            --store-sensitive-snippets false
           )
           if [ "${{ github.event.inputs.include_content_hash }}" = "true" ]; then
             args+=(--include-content-hash)

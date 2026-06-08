@@ -56,6 +56,24 @@ INVENTORY_COLUMNS = [
     "human_decision",
     "final_location",
     "comment",
+    "content_inspection_enabled",
+    "content_extracted",
+    "content_extract_status",
+    "content_extract_error",
+    "content_length",
+    "content_text_hash",
+    "content_language_guess",
+    "content_rule_matches",
+    "content_regex_matches_count",
+    "content_classification_boost",
+    "content_sensitivity_flags",
+    "content_based_document_type",
+    "content_based_department",
+    "content_based_process",
+    "content_based_object",
+    "content_based_audience",
+    "content_based_confidence",
+    "content_based_reason",
 ]
 
 
@@ -108,6 +126,24 @@ class DriveInventoryItem:
     human_decision: str = ""
     final_location: str = ""
     comment: str = ""
+    content_inspection_enabled: bool = False
+    content_extracted: bool = False
+    content_extract_status: str = "not_attempted"
+    content_extract_error: str = ""
+    content_length: int = 0
+    content_text_hash: str = ""
+    content_language_guess: str = ""
+    content_rule_matches: str = ""
+    content_regex_matches_count: int = 0
+    content_classification_boost: str = ""
+    content_sensitivity_flags: str = ""
+    content_based_document_type: str = ""
+    content_based_department: str = ""
+    content_based_process: str = ""
+    content_based_object: str = ""
+    content_based_audience: str = ""
+    content_based_confidence: str = ""
+    content_based_reason: str = ""
 
     @classmethod
     def from_drive_file(cls, file_obj: Dict[str, Any], normalized_name: str, extension: str) -> "DriveInventoryItem":
