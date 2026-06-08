@@ -1,0 +1,145 @@
+name: Drive Inventory
+
+on:
+  workflow_dispatch:
+    inputs:
+      scope:
+        description: "Drive scan scope"
+        required: true
+        default: "all-accessible-drive"
+        type: choice
+        options:
+          - all-accessible-drive
+          - root
+          - folder
+      root_folder_id:
+        description: "Optional root folder ID for root/folder scope"
+        required: false
+        default: ""
+      mode:
+        description: "Inventory mode"
+        required: true
+        default: "full"
+        type: choice
+        options:
+          - inventory
+          - duplicates
+          - classify
+          - full
+      max_files:
+        description: "Maximum files to scan; 0 means no limit"
+        required: true
+        default: "100"
+      skip_google_sheets:
+        description: "Keep true for first-stage policy"
+        required: true
+        default: "true"
+        type: choice
+        options:
+          - "true"
+      include_content_hash:
+        description: "Hash ordinary file content within configured size limit"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+      include_google_export_hash:
+        description: "Export-hash Google Docs/Slides only; never Sheets"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+      include_media_hash:
+        description: "Hash image/video content within configured size limit"
+        required: true
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+permissions:
+  contents: read
+
+jobs:
+  drive-inventory:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Validate required secret
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          set -euo pipefail
+          test -n "$GOOGLE_SERVICE_ACCOUNT_JSON"
+          python - <<'PY'
+          import json, os
+          data = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"])
+          required = ["client_email", "private_key", "project_id"]
+          missing = [key for key in required if not data.get(key)]
+          if missing:
+              raise SystemExit(f"Missing service account fields: {missing}")
+          print("service account json looks valid for", data["client_email"])
+          PY
+
+      - name: Run read-only Drive inventory
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_DELEGATED_USER: ${{ secrets.GOOGLE_DELEGATED_USER }}
+        run: |
+          set -euo pipefail
+          args=(
+            --scope "${{ github.event.inputs.scope }}"
+            --root-folder-id "${{ github.event.inputs.root_folder_id }}"
+            --config configs/drive_inventory.yml
+            --out-dir out/drive_inventory
+            --mode "${{ github.event.inputs.mode }}"
+            --max-files "${{ github.event.inputs.max_files }}"
+            --skip-google-sheets "${{ github.event.inputs.skip_google_sheets }}"
+            --dry-run true
+            --safe-mode true
+          )
+          if [ "${{ github.event.inputs.include_content_hash }}" = "true" ]; then
+            args+=(--include-content-hash)
+          fi
+          if [ "${{ github.event.inputs.include_google_export_hash }}" = "true" ]; then
+            args+=(--include-google-export-hash)
+          fi
+          if [ "${{ github.event.inputs.include_media_hash }}" = "true" ]; then
+            args+=(--include-media-hash)
+          fi
+          python -m knowledge_ops.drive_inventory "${args[@]}" | tee /tmp/drive-inventory-summary.json
+          {
+            echo "## Drive Inventory result"
+            echo ""
+            echo "- Scope: ${{ github.event.inputs.scope }}"
+            echo "- Mode: ${{ github.event.inputs.mode }}"
+            echo "- Max files: ${{ github.event.inputs.max_files }}"
+            echo "- Google Sheets: skipped by policy"
+            echo "- Drive writes: disabled"
+            echo ""
+            echo '```json'
+            cat /tmp/drive-inventory-summary.json
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload inventory artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: drive-inventory-output
+          path: out/drive_inventory
+          if-no-files-found: error

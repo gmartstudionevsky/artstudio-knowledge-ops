@@ -22,6 +22,7 @@ Machine proposes, human approves where risk is meaningful, and GitHub-native aut
 - `knowledge_ops/strict_drive_ops.py` - strict GitHub-native Drive/Sheets execution CLI used by workflow.
 - `knowledge_ops/native_drive_ops.py` - base Drive/Sheets execution helpers.
 - `knowledge_ops/preparation_ops.py` - preparation-stage planning helpers.
+- `knowledge_ops/drive_inventory` - read-only first-stage Drive inventory, duplicate reports and review exports.
 - `config/control-center.json` - canonical folder IDs, runtime, statuses, naming rules and automation policy.
 - `config/agents.yml` - managed agent roles and approval boundaries.
 - `docs` - architecture, runbook, secrets and operational handoff notes.
@@ -62,3 +63,9 @@ See `docs/secrets.md` for optional secrets and access setup.
 3. Run `GitHub-native Drive Ops` with `command = complete-prep`, `dry_run = false`.
 4. Review `ARTSTUDIO_Reorganization_Plan`, especially `Pending Trash Queue`, `Folder Duplicate Audit` and manual rows.
 5. Run `validate-readiness` with `dry_run = false`.
+
+## Drive Inventory / Первый этап инвентаризации Google Drive
+
+Use `python -m knowledge_ops.drive_inventory --scope all-accessible-drive --config configs/drive_inventory.yml --out-dir out/drive_inventory --mode full --skip-google-sheets true --dry-run true` for the read-only first-stage inventory. Google Sheets are listed as skipped objects only; no Drive writes, deletes, moves, renames or permission changes are implemented in this contour.
+
+See `docs/drive_inventory.md` for local runs, GitHub Actions usage, report formats and review guidance.
