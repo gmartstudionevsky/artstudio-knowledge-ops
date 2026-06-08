@@ -8,6 +8,11 @@ from typing import Any, Dict, List
 
 from knowledge_ops.drive_inventory.classifier import classify_item
 from knowledge_ops.drive_inventory.config import InventoryConfig
+from knowledge_ops.drive_inventory.content_inspector import (
+    ContentInspector,
+    ContentRuleEngine,
+    apply_content_result,
+)
 from knowledge_ops.drive_inventory.drive_client import DriveInventoryClient
 from knowledge_ops.drive_inventory.duplicate_detector import mark_duplicates
 from knowledge_ops.drive_inventory.models import FOLDER_MIME, SHEETS_MIME, DriveInventoryItem
@@ -37,6 +42,11 @@ class DriveInventoryScanner:
     def __init__(self, client: DriveInventoryClient, config: InventoryConfig):
         self.client = client
         self.config = config
+        self.content_inspector = ContentInspector(
+            client=client,
+            config=config,
+            rule_engine=ContentRuleEngine.from_file(config.content_rules_config),
+        )
 
     def scan(self, scope: str, mode: str, root_folder_id: str = "", max_files: int = 0, run_log_path: Path | None = None) -> InventoryResult:
         result = InventoryResult(items=[], skipped_google_sheets=[], scope=scope, mode=mode)
@@ -63,6 +73,9 @@ class DriveInventoryScanner:
                     continue
                 if mode in {"classify", "full"}:
                     classify_item(item)
+                if mode in {"classify", "full"} and self.config.enable_content_inspection:
+                    content_result = self.content_inspector.inspect(item, file_obj)
+                    apply_content_result(item, content_result)
                 if mode in {"inventory", "duplicates", "full"}:
                     self._maybe_hash(item, file_obj)
                 result.items.append(item)

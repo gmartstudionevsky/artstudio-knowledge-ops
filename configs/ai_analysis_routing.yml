@@ -1,0 +1,36 @@
+ai_analysis:
+  scenarios: [metadata_only, cheap, balanced, deep]
+  sample_size: 50
+  random_seed: 42
+  max_file_size_mb_for_cloud: 200
+  budget_limits:
+    max_total_cost_usd: 100
+    max_cost_per_service_usd:
+      vision: 25
+      document_ai: 50
+      video_intelligence: 25
+      speech_to_text: 10
+    max_images_for_cloud_analysis: 1000
+    max_pages_for_document_ai: 5000
+    max_video_minutes: 120
+    max_audio_minutes: 120
+    max_sensitive_files: 0
+    require_approval_for_sensitive: true
+    require_approval_above_cost_usd: 25
+    require_approval_for_document_ai_form_parser: true
+    require_approval_for_face_detection: true
+    require_approval_for_speech_to_text: true
+    require_approval_for_video_intelligence: true
+scenarios:
+  cheap:
+    vision: [text_detection]
+    document_ai: [enterprise_document_ocr]
+  balanced:
+    vision: [label_detection, text_detection]
+    document_ai: [enterprise_document_ocr]
+    speech_to_text: [standard_batch]
+  deep:
+    vision: [label_detection, text_detection, document_text_detection]
+    document_ai: [enterprise_document_ocr, layout_parser]
+    video_intelligence: [label_detection, shot_change_detection, text_detection]
+    speech_to_text: [standard_batch]

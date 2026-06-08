@@ -23,6 +23,7 @@ Machine proposes, human approves where risk is meaningful, and GitHub-native aut
 - `knowledge_ops/native_drive_ops.py` - base Drive/Sheets execution helpers.
 - `knowledge_ops/preparation_ops.py` - preparation-stage planning helpers.
 - `knowledge_ops/drive_inventory` - read-only first-stage Drive inventory, duplicate reports and review exports.
+- `knowledge_ops/ai_analysis` - estimate-only Google Cloud AI eligibility, pricing and sample-plan preparation.
 - `config/control-center.json` - canonical folder IDs, runtime, statuses, naming rules and automation policy.
 - `config/agents.yml` - managed agent roles and approval boundaries.
 - `docs` - architecture, runbook, secrets and operational handoff notes.
@@ -69,3 +70,9 @@ See `docs/secrets.md` for optional secrets and access setup.
 Use `python -m knowledge_ops.drive_inventory --scope all-accessible-drive --config configs/drive_inventory.yml --out-dir out/drive_inventory --mode full --skip-google-sheets true --dry-run true` for the read-only first-stage inventory. Google Sheets are listed as skipped objects only; no Drive writes, deletes, moves, renames or permission changes are implemented in this contour.
 
 See `docs/drive_inventory.md` for local runs, GitHub Actions usage, report formats and review guidance.
+
+## AI Analysis Preparation & Pricing Estimator
+
+Use `python -m knowledge_ops.ai_analysis --inventory out/drive_inventory/inventory.csv --content-inspection out/drive_inventory/content_inspection.csv --out-dir out/ai_analysis_estimate --mode estimate --pricing-config configs/ai_analysis_pricing.yml --routing-config configs/ai_analysis_routing.yml --dry-run true` to estimate Cloud Vision, Document AI, Video Intelligence and Speech-to-Text eligibility and cost. Estimate mode never calls Cloud AI APIs.
+
+See `docs/ai_analysis_preparation.md` for routing, pricing config, safeguards and Google Cloud setup checklist.

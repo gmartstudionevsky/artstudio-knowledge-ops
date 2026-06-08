@@ -1,0 +1,61 @@
+name: AI Analysis Estimate
+
+on:
+  workflow_dispatch:
+    inputs:
+      inventory_path:
+        description: "Path to inventory.csv in the checked-out workspace"
+        required: true
+        default: "out/drive_inventory/inventory.csv"
+      scenario:
+        description: "Scenario to estimate; empty means all configured scenarios"
+        required: false
+        default: ""
+      max_total_cost_usd:
+        description: "Budget guard max total cost"
+        required: true
+        default: "100"
+      generate_sample_plan:
+        description: "Generate sample plan"
+        required: true
+        default: "true"
+        type: choice
+        options: ["true", "false"]
+
+permissions:
+  contents: read
+
+jobs:
+  ai-analysis-estimate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: Run estimate only
+        env:
+          AI_ANALYSIS_ALLOW_CLOUD_CALLS: "false"
+          AI_ANALYSIS_ALLOW_SENSITIVE_UPLOAD: "false"
+        run: |
+          set -euo pipefail
+          args=(
+            --inventory "${{ github.event.inputs.inventory_path }}"
+            --content-inspection out/drive_inventory/content_inspection.csv
+            --out-dir out/ai_analysis_estimate
+            --mode estimate
+            --pricing-config configs/ai_analysis_pricing.yml
+            --routing-config configs/ai_analysis_routing.yml
+            --dry-run true
+            --max-total-cost-usd "${{ github.event.inputs.max_total_cost_usd }}"
+          )
+          if [ -n "${{ github.event.inputs.scenario }}" ]; then
+            args+=(--scenario "${{ github.event.inputs.scenario }}")
+          fi
+          python -m knowledge_ops.ai_analysis "${args[@]}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ai-analysis-estimate-output
+          path: out/ai_analysis_estimate
+          if-no-files-found: warn

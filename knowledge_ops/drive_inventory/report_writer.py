@@ -15,6 +15,33 @@ from knowledge_ops.drive_inventory.scanner import InventoryResult
 
 FOLDER_COLUMNS = ["file_id", "name", "full_path", "depth", "file_count", "subfolder_count", "top_mime_types", "chaos_signals"]
 ERROR_COLUMNS = ["file_id", "name", "error"]
+CONTENT_INSPECTION_COLUMNS = [
+    "file_id",
+    "name",
+    "full_path",
+    "mime_type",
+    "extension",
+    "content_inspection_enabled",
+    "content_extracted",
+    "content_extract_status",
+    "content_extract_error",
+    "content_length",
+    "content_text_hash",
+    "content_language_guess",
+    "content_rule_matches",
+    "content_regex_matches_count",
+    "content_classification_boost",
+    "content_sensitivity_flags",
+    "content_based_document_type",
+    "content_based_department",
+    "content_based_process",
+    "content_based_object",
+    "content_based_audience",
+    "content_based_confidence",
+    "content_based_reason",
+]
+CONTENT_RULE_MATCH_COLUMNS = ["file_id", "name", "full_path", "rule_id", "category", "classification_reason"]
+CONTENT_SENSITIVITY_COLUMNS = ["file_id", "name", "full_path", "sensitivity_flag", "sensitivity_suggestion", "action_recommendation"]
 MIGRATION_COLUMNS = [
     "file_id",
     "current_path",
@@ -60,6 +87,9 @@ def write_reports(result: InventoryResult, out_dir: str | Path) -> None:
     write_csv(output / "classification_review.csv", INVENTORY_COLUMNS, (item.to_row() for item in classification_review))
     write_csv(output / "sensitivity_review.csv", INVENTORY_COLUMNS, (item.to_row() for item in sensitivity_review))
     write_csv(output / "migration_decision_plan.csv", MIGRATION_COLUMNS, migration_rows)
+    write_csv(output / "content_inspection.csv", CONTENT_INSPECTION_COLUMNS, content_inspection_rows(result.items))
+    write_csv(output / "content_rule_matches.csv", CONTENT_RULE_MATCH_COLUMNS, content_rule_match_rows(result.items))
+    write_csv(output / "content_sensitivity_flags.csv", CONTENT_SENSITIVITY_COLUMNS, content_sensitivity_rows(result.items))
     write_csv(output / "errors.csv", ERROR_COLUMNS, result.errors)
     write_tree(output / "drive_structure_tree.md", folders)
     write_audit_report(output / "audit_report.md", result, folders, exact, version, semantic, sensitivity_review)
@@ -112,6 +142,44 @@ def build_migration_plan(items: List[DriveInventoryItem]) -> List[Dict[str, str]
                 "execution_status": "not_planned",
             }
         )
+    return rows
+
+
+def content_inspection_rows(items: List[DriveInventoryItem]) -> List[Dict[str, object]]:
+    return [{column: getattr(item, column) for column in CONTENT_INSPECTION_COLUMNS} for item in items]
+
+
+def content_rule_match_rows(items: List[DriveInventoryItem]) -> List[Dict[str, str]]:
+    rows = []
+    for item in items:
+        for rule_id in filter(None, item.content_rule_matches.split(";")):
+            rows.append(
+                {
+                    "file_id": item.file_id,
+                    "name": item.name,
+                    "full_path": item.full_path,
+                    "rule_id": rule_id,
+                    "category": rule_id.split("_")[0],
+                    "classification_reason": item.content_based_reason,
+                }
+            )
+    return rows
+
+
+def content_sensitivity_rows(items: List[DriveInventoryItem]) -> List[Dict[str, str]]:
+    rows = []
+    for item in items:
+        for flag in filter(None, item.content_sensitivity_flags.split(";")):
+            rows.append(
+                {
+                    "file_id": item.file_id,
+                    "name": item.name,
+                    "full_path": item.full_path,
+                    "sensitivity_flag": flag,
+                    "sensitivity_suggestion": item.sensitivity_suggestion,
+                    "action_recommendation": item.action_recommendation,
+                }
+            )
     return rows
 
 
@@ -171,6 +239,11 @@ def write_audit_report(
         f"- Folders: {len([item for item in result.items if item.object_kind == 'folder'])}",
         f"- Files inventoried: {len(files)}",
         f"- Google Sheets skipped: {len(result.skipped_google_sheets)}",
+        f"- Content inspection attempted: {sum(1 for item in result.items if item.content_inspection_enabled)}",
+        f"- Content successfully extracted: {sum(1 for item in result.items if item.content_extracted)}",
+        f"- Content skipped by type/policy: {sum(1 for item in result.items if item.content_extract_status.startswith('skipped') or item.content_extract_status in {'unsupported_type', 'unsupported_legacy_binary', 'archive_metadata_only', 'ocr_disabled'})}",
+        f"- Content skipped by size: {sum(1 for item in result.items if 'file_too_large' in item.content_extract_error or item.content_extract_status == 'skipped_too_large')}",
+        f"- Content extraction errors: {sum(1 for item in result.items if item.content_extract_status == 'extract_error')}",
         "",
         "## Distributions",
         counter_section("Mime types", Counter(item.mime_type for item in files)),
@@ -179,6 +252,8 @@ def write_audit_report(
         counter_section("Departments", Counter(item.department_suggestion for item in files)),
         counter_section("Document types", Counter(item.document_type_suggestion for item in files)),
         counter_section("Sensitivity", Counter(item.sensitivity_suggestion for item in files)),
+        counter_section("Content-based document types", Counter(item.content_based_document_type for item in files if item.content_based_document_type)),
+        counter_section("Content sensitivity flags", Counter(flag for item in files for flag in item.content_sensitivity_flags.split(";") if flag)),
         "",
         "## Folder hotspots",
     ]
@@ -193,6 +268,8 @@ def write_audit_report(
             f"- Semantic candidate rows: {len(semantic)}; groups: {count_groups(semantic)}",
             f"- Potentially sensitive rows: {len(sensitivity)}",
             f"- Unknown document type rows: {sum(1 for item in files if item.document_type_suggestion == 'неизвестно')}",
+            f"- Metadata/content classification conflicts: {sum(1 for item in files if 'content_metadata_conflict' in item.reason)}",
+            f"- Type determined only by content: {sum(1 for item in files if item.content_based_document_type and item.content_based_document_type == item.document_type_suggestion)}",
             "",
             "## Errors and limitations",
             f"- Errors: {len(result.errors)}",
@@ -260,6 +337,9 @@ def write_excel(
     add_sheet(wb, "Classification Review", INVENTORY_COLUMNS, [item.to_row() for item in classification_review])
     add_sheet(wb, "Sensitivity Review", INVENTORY_COLUMNS, [item.to_row() for item in sensitivity_review])
     add_sheet(wb, "Migration Decision Plan", MIGRATION_COLUMNS, migration_rows)
+    add_sheet(wb, "Content Inspection", CONTENT_INSPECTION_COLUMNS, content_inspection_rows(result.items))
+    add_sheet(wb, "Rule Matches", CONTENT_RULE_MATCH_COLUMNS, content_rule_match_rows(result.items))
+    add_sheet(wb, "Content Sensitivity", CONTENT_SENSITIVITY_COLUMNS, content_sensitivity_rows(result.items))
     add_sheet(wb, "Errors", ERROR_COLUMNS, result.errors)
     wb.save(path)
 
