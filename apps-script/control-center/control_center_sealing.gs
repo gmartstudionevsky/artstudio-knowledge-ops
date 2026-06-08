@@ -19,6 +19,9 @@ const CONFIG = {
   allowPermanentDelete: false,
   allowTrashObviousDuplicates: true,
   autoSafeActionsEnabled: true,
+  dryRun: true,
+  executeAcceptedActions: false,
+  allowDelete: false,
   rootFolders: [
     '00_CONTROL_CENTER',
     '01_INBOX',
@@ -56,7 +59,7 @@ const CONFIG = {
     'bootstrap_control_center.gs',
     'control_center_sealing.gs'
   ],
-  methodologyPrefix: 'ARTSTUDIO Base'
+  methodologyPrefix: 'ARTSTUDIO Base —'
 };
 
 const MAIN_HEADERS = [
@@ -171,6 +174,10 @@ function mainExecuteSafeActions() {
   return { processed: results.length, results: results };
 }
 
+function mainExecuteAcceptedActions() {
+  return mainExecuteSafeActions();
+}
+
 function mainValidateStageTwoReadiness() {
   validateConfig_();
   const ctx = buildContext_();
@@ -188,10 +195,50 @@ function mainValidateStageTwoReadiness() {
   });
 }
 
+function mainValidateStageOneClosure() {
+  return mainValidateStageTwoReadiness();
+}
+
 function getOrCreateFolder(parentFolder, folderName) {
   const folders = parentFolder.getFoldersByName(folderName);
   if (folders.hasNext()) return { folder: folders.next(), created: false };
   return { folder: parentFolder.createFolder(folderName), created: true };
+}
+
+function scanArtstudioFolder() {
+  const ctx = buildContext_();
+  return scanFolderRecursive_(ctx.artstudioFolder, 'ARTSTUDIO', 0);
+}
+
+function scanControlCenterFolder() {
+  const ctx = buildContext_();
+  return scanFolderRecursive_(ctx.controlCenterFolder, '00_CONTROL_CENTER', 0);
+}
+
+function scanRootProjectFiles() {
+  const ctx = buildContext_();
+  return dedupeRecords_(scanFolderRecursive_(ctx.artstudioFolder, 'ARTSTUDIO', 0));
+}
+
+function detectDuplicateControlFiles(records) {
+  const canonical = findCanonicalControlFiles(records);
+  return buildFindings(records, canonical).duplicates;
+}
+
+function detectSetupArtifacts(records) {
+  return buildFindings(records, findCanonicalControlFiles(records)).recommendations.filter(function(item) {
+    return item.detectionRule === 'SETUP_ARTIFACT';
+  });
+}
+
+function detectMethodologyFiles(records) {
+  return buildFindings(records, findCanonicalControlFiles(records)).recommendations.filter(function(item) {
+    return item.detectionRule === 'METHODOLOGY_FILE';
+  });
+}
+
+function detectNamingIssues(records) {
+  return buildFindings(records, findCanonicalControlFiles(records)).naming;
 }
 
 function findCanonicalControlFiles(records) {
@@ -465,6 +512,14 @@ function writeFindings(spreadsheet, sheetName, findings, snapshotId, scanTime) {
   writeRows_(sheet, findings.map(function(f) {
     return [snapshotId, scanTime, f.object.objectId, f.object.objectName, f.object.url, f.object.currentLocation, f.detectionRule, f.problem, f.recommendedAction, f.safeAction, f.risk, f.compareResult, 'open'];
   }));
+}
+
+function writeDuplicateReport(spreadsheet, findings, snapshotId, scanTime) {
+  return writeFindings(spreadsheet, CONFIG.duplicateReportSheetName, findings, snapshotId, scanTime);
+}
+
+function writeNamingIssues(spreadsheet, findings, snapshotId, scanTime) {
+  return writeFindings(spreadsheet, CONFIG.namingIssuesSheetName, findings, snapshotId, scanTime);
 }
 
 function writeReorganizationPlanRows(spreadsheet, recommendations, scanTime) {
