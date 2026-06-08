@@ -1,0 +1,99 @@
+from __future__ import annotations
+
+import unittest
+
+from knowledge_ops.drive_inventory.classifier import classify_item
+from knowledge_ops.drive_inventory.duplicate_detector import mark_exact_duplicates, mark_version_candidates
+from knowledge_ops.drive_inventory.models import SHEETS_MIME, DriveInventoryItem
+from knowledge_ops.drive_inventory.normalizer import normalize_name, split_extension, strip_version_markers
+from knowledge_ops.drive_inventory.report_writer import build_migration_plan
+from knowledge_ops.drive_inventory.safety import ReadOnlySafetyError, assert_read_only_operation, assert_safe_recommendation
+
+
+class DriveInventoryNormalizerTest(unittest.TestCase):
+    def test_normalize_name(self):
+        self.assertEqual(normalize_name("  Договор__ФИНАЛ  "), "договор финал")
+
+    def test_split_extension(self):
+        base, ext = split_extension("report.final.pdf", "application/pdf")
+        self.assertEqual(base, "report.final")
+        self.assertEqual(ext, "pdf")
+
+    def test_version_markers_are_stripped(self):
+        self.assertEqual(strip_version_markers("Договор собственника копия v2 (1).pdf"), "договор собственника .pdf")
+
+
+class DriveInventoryPolicyTest(unittest.TestCase):
+    def test_google_sheet_is_skipped_item(self):
+        item = DriveInventoryItem.from_drive_file(
+            {"id": "sheet1", "name": "Finance", "mimeType": SHEETS_MIME},
+            normalized_name="finance",
+            extension="",
+        )
+        self.assertTrue(item.is_google_sheet_skipped)
+        self.assertEqual(item.object_kind, "skipped_google_sheet")
+        self.assertEqual(item.action_recommendation, "SKIPPED_GOOGLE_SHEET")
+
+    def test_destructive_drive_operations_are_forbidden(self):
+        with self.assertRaises(ReadOnlySafetyError):
+            assert_read_only_operation("files.update")
+
+    def test_delete_recommendation_is_forbidden(self):
+        with self.assertRaises(ReadOnlySafetyError):
+            assert_safe_recommendation("DELETE")
+
+
+class DriveInventoryClassifierTest(unittest.TestCase):
+    def test_classifies_object_department_type_and_sensitivity(self):
+        item = DriveInventoryItem(
+            file_id="1",
+            name="ARTSTUDIO Nevsky договор собственника 2025.pdf",
+            normalized_name="artstudio nevsky договор собственника 2025",
+            mime_type="application/pdf",
+            object_kind="file",
+            extension="pdf",
+            full_path="/ARTSTUDIO Nevsky/Собственники/Договоры/ARTSTUDIO Nevsky договор собственника 2025.pdf",
+        )
+        classify_item(item)
+        self.assertEqual(item.object_suggestion, "ARTSTUDIO Nevsky")
+        self.assertEqual(item.department_suggestion, "собственники / owner relations")
+        self.assertEqual(item.document_type_suggestion, "договор")
+        self.assertEqual(item.sensitivity_suggestion, "owner_data")
+
+
+class DriveInventoryDuplicateTest(unittest.TestCase):
+    def test_exact_duplicates_by_md5_and_size(self):
+        first = DriveInventoryItem("1", "a.pdf", "a", "application/pdf", "file", "pdf", 10, "same")
+        second = DriveInventoryItem("2", "copy a.pdf", "copy a", "application/pdf", "file", "pdf", 10, "same")
+        groups = mark_exact_duplicates([first, second])
+        self.assertEqual(len(groups), 1)
+        self.assertEqual(first.duplicate_kind, "exact")
+        self.assertTrue(first.canonical_candidate_id)
+
+    def test_version_candidates_by_normalized_name(self):
+        first = DriveInventoryItem("1", "Регламент СПиР v1.docx", "регламент спир v1", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "file", "docx")
+        second = DriveInventoryItem("2", "Регламент СПиР финал.docx", "регламент спир финал", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "file", "docx")
+        groups = mark_version_candidates([first, second])
+        self.assertEqual(len(groups), 1)
+        self.assertEqual(first.duplicate_kind, "version_candidate")
+
+
+class DriveInventoryMigrationPlanTest(unittest.TestCase):
+    def test_builds_migration_decision_plan_without_execution(self):
+        item = DriveInventoryItem(
+            file_id="1",
+            name="SOP check-in.pdf",
+            normalized_name="sop check in",
+            mime_type="application/pdf",
+            object_kind="file",
+            extension="pdf",
+            full_path="/Ops/SOP check-in.pdf",
+        )
+        classify_item(item)
+        rows = build_migration_plan([item])
+        self.assertEqual(rows[0]["execution_status"], "not_planned")
+        self.assertIn("SOP", rows[0]["future_target_area"])
+
+
+if __name__ == "__main__":
+    unittest.main()

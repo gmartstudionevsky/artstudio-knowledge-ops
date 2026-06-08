@@ -1,0 +1,12 @@
+drive_inventory:
+  scope: all-accessible-drive
+  root_folder_id:
+  page_size: 1000
+  max_download_bytes: 10485760
+  skip_google_sheets: true
+  include_content_hash: false
+  include_google_export_hash: false
+  include_media_hash: false
+  include_perceptual_image_hash: false
+  safe_mode: true
+  cache_dir: .cache/drive_inventory
