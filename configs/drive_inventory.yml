@@ -14,6 +14,21 @@ drive_inventory:
   content_page_limit: 20
   max_download_size_mb: 25
   enable_ocr: false
+  enable_image_ocr: false
+  enable_pdf_ocr: false
+  enable_presentation_ocr: false
+  enable_google_cloud_vision: false
+  enable_document_ai: false
+  ocr_max_files: 0
+  ocr_max_pages_per_file: 10
+  ocr_max_file_size_mb: 25
+  ocr_only_for_review_queue: true
+  ocr_only_for_document_scan_candidates: true
+  ocr_allow_sensitive: false
+  ocr_store_text: false
+  ocr_store_sensitive_snippets: false
+  allow_sensitive_cloud_ai: false
+  allow_cloud_ai_calls: false
   enable_excel_content_inspection: true
   store_content_preview: false
   store_sensitive_snippets: false
@@ -30,5 +45,11 @@ drive_inventory:
     strict_full_scan: false
     normalization_cache_size: 50000
     slow_rule_ms: 2.0
+  quality_gates:
+    unknown_object_rate_max: 0.50
+    unknown_department_rate_max: 0.50
+    unknown_document_type_rate_max: 0.50
+    conflict_rate_max: 0.10
+    sensitive_unknown_rate_max: 0.30
   safe_mode: true
   cache_dir: .cache/drive_inventory

@@ -114,6 +114,12 @@ python -m knowledge_ops.drive_inventory validate-rules \
 
 Отдельный GitHub Actions workflow: `Classification Engine Diagnostics`. Он запускается вручную, не требует Google Drive secrets и не делает Cloud AI calls.
 
+## Classification V3 / Deep Classification Layer
+
+V3 добавляет расширенную taxonomy, regex entity extraction, confidence/evidence fields, OCR/cloud candidates, human review queues и отдельные `classification_v3_*` отчеты. OCR и Cloud AI остаются выключенными по умолчанию; текущий слой только формирует кандидатов и approval queues.
+
+Основные документы: [docs/classification_v3.md](docs/classification_v3.md), [docs/ocr_pipeline.md](docs/ocr_pipeline.md), [docs/human_review_queues.md](docs/human_review_queues.md), [docs/classification_rules_guide.md](docs/classification_rules_guide.md).
+
 ## Credentials
 
 Для реального Drive-листинга нужен один из вариантов:
@@ -133,5 +139,9 @@ Service account должен иметь доступ на чтение к тем
 
 - [docs/drive_inventory.md](docs/drive_inventory.md) — инвентаризация и отчеты.
 - [docs/classification_engine.md](docs/classification_engine.md) — diagnostics, indexed/full-scan режимы и validation правил.
+- [docs/classification_v3.md](docs/classification_v3.md) — Classification V3, review queues и V3 outputs.
+- [docs/ocr_pipeline.md](docs/ocr_pipeline.md) — OCR candidate orchestration и guards.
+- [docs/human_review_queues.md](docs/human_review_queues.md) — очереди ручной проверки.
+- [docs/classification_rules_guide.md](docs/classification_rules_guide.md) — безопасное добавление правил.
 - [docs/inventory_workflow.md](docs/inventory_workflow.md) — этапы workflow и рекомендуемый темп прогонов.
 - [docs/ai_analysis_preparation.md](docs/ai_analysis_preparation.md) — подготовка Cloud AI-анализа и estimate.

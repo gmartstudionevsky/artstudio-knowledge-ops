@@ -39,13 +39,29 @@ INVENTORY_COLUMNS = [
     "is_google_sheet_skipped",
     "skip_reason",
     "object_suggestion",
+    "object_confidence",
+    "object_evidence",
     "department_suggestion",
+    "department_confidence",
+    "department_evidence",
     "function_suggestion",
+    "function_confidence",
+    "function_evidence",
     "document_family_suggestion",
+    "document_family_confidence",
+    "document_family_evidence",
     "document_type_suggestion",
+    "document_type_confidence",
+    "document_type_evidence",
     "process_suggestion",
+    "process_confidence",
+    "process_evidence",
     "audience_suggestion",
+    "audience_confidence",
     "sensitivity_suggestion",
+    "sensitivity_flags",
+    "sensitivity_confidence",
+    "sensitivity_evidence",
     "retention_suggestion",
     "classification_status",
     "matched_path_rules",
@@ -60,15 +76,58 @@ INVENTORY_COLUMNS = [
     "combined_confidence",
     "conflict_flags",
     "lifecycle_status",
+    "lifecycle_confidence",
+    "lifecycle_evidence",
     "cleanup_category",
+    "cleanup_confidence",
+    "cleanup_evidence",
     "source_origin",
+    "source_origin_confidence",
     "media_subtype",
+    "media_subtype_confidence",
     "image_subtype",
     "video_subtype",
     "audio_subtype",
     "design_source_subtype",
     "cloud_analysis_candidate",
+    "cloud_analysis_recommended_service",
+    "cloud_analysis_approval_required",
     "priority_for_human_review",
+    "human_review_queue",
+    "classification_reason",
+    "unit_number_detected",
+    "premise_number_detected",
+    "contract_number_detected",
+    "act_number_detected",
+    "invoice_number_detected",
+    "payment_order_number_detected",
+    "cadastral_number_detected",
+    "date_detected",
+    "year_detected",
+    "month_detected",
+    "corpus_detected",
+    "legal_entity_marker_detected",
+    "INN_detected",
+    "KPP_detected",
+    "OGRN_detected",
+    "bank_account_detected",
+    "phone_detected",
+    "email_detected",
+    "passport_marker_detected",
+    "SNILS_detected",
+    "ocr_candidate",
+    "ocr_attempted",
+    "ocr_engine",
+    "ocr_status",
+    "ocr_page_count",
+    "ocr_text_hash",
+    "ocr_text_length",
+    "ocr_rule_matches",
+    "ocr_sensitivity_flags",
+    "ocr_document_type_suggestion",
+    "ocr_confidence",
+    "ocr_reason",
+    "ocr_requires_manual_review",
     "duplicate_group_id",
     "duplicate_kind",
     "canonical_candidate_id",
@@ -131,13 +190,29 @@ class DriveInventoryItem:
     is_google_sheet_skipped: bool = False
     skip_reason: str = ""
     object_suggestion: str = "объект не определён"
+    object_confidence: str = "unknown"
+    object_evidence: str = ""
     department_suggestion: str = "не определено"
+    department_confidence: str = "unknown"
+    department_evidence: str = ""
     function_suggestion: str = "не определено"
+    function_confidence: str = "unknown"
+    function_evidence: str = ""
     document_family_suggestion: str = "неизвестно"
+    document_family_confidence: str = "unknown"
+    document_family_evidence: str = ""
     document_type_suggestion: str = "неизвестно"
+    document_type_confidence: str = "unknown"
+    document_type_evidence: str = ""
     process_suggestion: str = "не определено"
+    process_confidence: str = "unknown"
+    process_evidence: str = ""
     audience_suggestion: str = "не определено"
+    audience_confidence: str = "unknown"
     sensitivity_suggestion: str = "unknown"
+    sensitivity_flags: str = ""
+    sensitivity_confidence: str = "unknown"
+    sensitivity_evidence: str = ""
     retention_suggestion: str = "review"
     classification_status: str = "UNKNOWN"
     matched_path_rules: str = ""
@@ -152,15 +227,58 @@ class DriveInventoryItem:
     combined_confidence: str = "unknown"
     conflict_flags: str = ""
     lifecycle_status: str = "unknown"
+    lifecycle_confidence: str = "unknown"
+    lifecycle_evidence: str = ""
     cleanup_category: str = "unknown_review"
+    cleanup_confidence: str = "unknown"
+    cleanup_evidence: str = ""
     source_origin: str = "unknown_origin"
+    source_origin_confidence: str = "unknown"
     media_subtype: str = ""
+    media_subtype_confidence: str = "unknown"
     image_subtype: str = ""
     video_subtype: str = ""
     audio_subtype: str = ""
     design_source_subtype: str = ""
     cloud_analysis_candidate: bool = False
+    cloud_analysis_recommended_service: str = ""
+    cloud_analysis_approval_required: bool = False
     priority_for_human_review: str = "normal"
+    human_review_queue: str = "unknown_classification_review"
+    classification_reason: str = ""
+    unit_number_detected: str = ""
+    premise_number_detected: str = ""
+    contract_number_detected: str = ""
+    act_number_detected: str = ""
+    invoice_number_detected: str = ""
+    payment_order_number_detected: str = ""
+    cadastral_number_detected: str = ""
+    date_detected: str = ""
+    year_detected: str = ""
+    month_detected: str = ""
+    corpus_detected: str = ""
+    legal_entity_marker_detected: str = ""
+    INN_detected: str = ""
+    KPP_detected: str = ""
+    OGRN_detected: str = ""
+    bank_account_detected: str = ""
+    phone_detected: str = ""
+    email_detected: str = ""
+    passport_marker_detected: str = ""
+    SNILS_detected: str = ""
+    ocr_candidate: bool = False
+    ocr_attempted: bool = False
+    ocr_engine: str = "disabled"
+    ocr_status: str = "not_attempted"
+    ocr_page_count: int = 0
+    ocr_text_hash: str = ""
+    ocr_text_length: int = 0
+    ocr_rule_matches: str = ""
+    ocr_sensitivity_flags: str = ""
+    ocr_document_type_suggestion: str = ""
+    ocr_confidence: str = "unknown"
+    ocr_reason: str = ""
+    ocr_requires_manual_review: bool = False
     duplicate_group_id: str = ""
     duplicate_kind: str = ""
     canonical_candidate_id: str = ""

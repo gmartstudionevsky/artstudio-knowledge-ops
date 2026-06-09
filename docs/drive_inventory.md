@@ -180,13 +180,27 @@ Workflow `Drive Inventory Pipeline` запускается только вруч
 - `classification_quality_summary.csv`
 - `classification_quality_summary_ru.csv`
 - `classification_quality_summary.md`
+- `classification_v3_inventory.csv`
+- `classification_v3_review.csv`
+- `classification_v3_unknown.csv`
+- `classification_v3_conflicts.csv`
+- `classification_v3_sensitivity.csv`
+- `classification_v3_ocr_candidates.csv`
+- `classification_v3_cloud_ai_candidates.csv`
+- `classification_v3_duplicate_groups.csv`
+- `classification_v3_media.csv`
+- `classification_v3_human_review_queues.csv`
+- `classification_v3_report.md`
+- `OCR_readiness_report.md`
+- `cloud_ai_approval_report.md`
+- `human_review_guide.md`
 - `drive_structure_tree.md`
 - `audit_report.md`
 - `run_log.jsonl`
 - `errors.csv`
 - `errors_ru.csv`
 
-`inventory.xlsx` содержит листы Summary, All Objects, Inventory, Classification V2 Summary, Objects, Departments, Document Types, Sensitivity, Cleanup Candidates, System Trash, Media, Unknown After V2, Rule Matches, Rule Performance, Quality Summary, Exact Duplicate Groups, Folders, Skipped Google Sheets, Exact Duplicates, Version Candidates, Semantic Candidates, Classification Review, Sensitivity Review, Migration Decision Plan, Content Inspection, Content Rule Matches, Content Sensitivity, Access Coverage и Errors.
+`inventory.xlsx` содержит листы Summary, All Objects, Inventory, Classification V2 Summary, Objects, Departments, Document Types, Sensitivity, Cleanup Candidates, System Trash, Media, Unknown After V2, Human Review Queues, OCR Candidates, Cloud AI Candidates, Conflicts, Rule Matches, Rule Performance, Quality Summary, Exact Duplicate Groups, Folders, Skipped Google Sheets, Exact Duplicates, Version Candidates, Semantic Candidates, Classification Review, Sensitivity Review, Migration Decision Plan, Content Inspection, Content Rule Matches, Content Sensitivity, Access Coverage и Errors.
 
 Проверка правил без Drive-аудита:
 

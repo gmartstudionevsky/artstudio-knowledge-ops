@@ -42,7 +42,7 @@ def mark_version_candidates(items: List[DriveInventoryItem]) -> Dict[str, List[D
     buckets: Dict[str, List[DriveInventoryItem]] = defaultdict(list)
     for item in eligible_files(items):
         base, ext = split_extension(item.name, item.mime_type)
-        key = f"{strip_version_markers(base)}:{ext or item.mime_type}:{item.object_suggestion}:{item.department_suggestion}"
+        key = f"{strip_version_markers(base)}:{ext or item.mime_type}:{item.object_suggestion}:{item.department_suggestion}:{item.document_type_suggestion}"
         if len(key) > 10:
             buckets[key].append(item)
     return apply_duplicate_groups(
@@ -112,13 +112,19 @@ def apply_duplicate_groups(
                 item.action_recommendation = "MARK_AS_CANONICAL_CANDIDATE"
                 item.cleanup_category = "canonical_review"
                 item.lifecycle_status = "canonical_candidate"
+                item.human_review_queue = item.human_review_queue or "knowledge_base_review"
             else:
                 item.action_recommendation = recommendation
-                item.cleanup_category = (
-                    "system_trash_candidate"
-                    if item.cleanup_category == "system_trash_candidate" or item.sensitivity_suggestion == "system_trash"
-                    else "duplicate_review"
-                )
+                if item.cleanup_category == "system_trash_candidate" or item.sensitivity_suggestion == "system_trash":
+                    item.cleanup_category = "system_trash_candidate"
+                    item.human_review_queue = "system_trash_review"
+                elif item.sensitivity_suggestion in {"owner_data", "owner_contract", "legal_contract", "financial", "accounting", "HR", "employee_data", "personal_data", "EGRN_sensitive"}:
+                    item.cleanup_category = "sensitive_duplicate_review"
+                    item.human_review_queue = "sensitive_data_review"
+                    item.action_recommendation = "SENSITIVE_REVIEW_REQUIRED"
+                else:
+                    item.cleanup_category = "duplicate_review"
+                    item.human_review_queue = "duplicate_review"
                 item.lifecycle_status = "exact_duplicate_candidate" if duplicate_kind == "exact" else "duplicate_candidate"
             if duplicate_kind == "exact" and item.classification_status != "CLASSIFIED_SYSTEM_TRASH":
                 item.classification_status = "CLASSIFIED_METADATA_MEDIUM"
