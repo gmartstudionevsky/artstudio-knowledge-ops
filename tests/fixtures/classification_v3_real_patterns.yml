@@ -1,0 +1,87 @@
+cases:
+  - name: Договор ТО Иванов.pdf
+    path: /ARTSTUDIO/04_Standards_SOP/Договор ТО Иванов.pdf
+    expected:
+      document_type_suggestion: technical_maintenance_contract
+      function_suggestion: owner_technical_maintenance
+      source_origin: auto_structured_artstudio_base
+      path_context_valid: false
+    not_expected:
+      document_family_suggestion: standard_sop
+      document_type_suggestion: checkin_sop
+  - name: Фото номера 301.jpg
+    path: /ARTSTUDIO/08_Legal_Files/Фото номера 301.jpg
+    expected:
+      document_family_suggestion: photo_asset
+      document_type_suggestion: room_photo
+      source_origin: auto_structured_artstudio_base
+      path_context_valid: false
+    not_expected:
+      document_family_suggestion: legal_document
+      sensitivity_suggestion: legal_contract
+  - name: Табель июнь.xlsx
+    path: /ARTSTUDIO/06_OTA/Табель июнь.xlsx
+    expected:
+      department_suggestion: HR / кадры
+      document_type_suggestion: timesheet
+      source_origin: auto_structured_artstudio_base
+      path_context_valid: false
+    not_expected:
+      function_suggestion: ota_management
+      process_suggestion: OTA_management
+  - name: Выписка ЕГРН.pdf
+    path: /ARTSTUDIO/02_Brand_Context/Выписка ЕГРН.pdf
+    expected:
+      document_family_suggestion: egrn_cadastre_document
+      document_type_suggestion: owner_EGRN_extract
+      source_origin: auto_structured_artstudio_base
+      path_context_valid: false
+    not_expected:
+      document_family_suggestion: brand_asset
+      function_suggestion: brand_assets
+  - name: brandbook.pdf
+    path: /ARTSTUDIO/09_Owner_Investor/brandbook.pdf
+    expected:
+      document_family_suggestion: brand_asset
+      document_type_suggestion: brandbook
+      source_origin: auto_structured_artstudio_base
+      path_context_valid: false
+    not_expected:
+      document_family_suggestion: owner_document
+      function_suggestion: owner_contracts
+  - name: Thumbs.db
+    path: /ARTSTUDIO/03_Object_Data/Thumbs.db
+    expected:
+      document_family_suggestion: system_file
+      document_type_suggestion: thumbs_db
+      cleanup_category: system_trash_candidate
+      classification_status: CLASSIFIED_SYSTEM_TRASH
+      source_origin: auto_structured_artstudio_base
+      path_context_valid: false
+
+negative_cases:
+  - name: НАДЕЖДА.pdf
+    path: /Random/НАДЕЖДА.pdf
+    not_expected:
+      document_type_suggestion: agency_contract
+      function_suggestion: owner_contracts
+  - name: кадры.pdf
+    path: /HR/кадры.pdf
+    not_expected:
+      document_type_suggestion: agency_contract
+  - name: задолженность.pdf
+    path: /Finance/задолженность.pdf
+    not_expected:
+      document_type_suggestion: agency_contract
+  - name: КПП организации.pdf
+    path: /Finance/КПП организации.pdf
+    not_expected:
+      document_type_suggestion: procurement_invoice
+  - name: фотоотчет.pdf
+    path: /Reports/фотоотчет.pdf
+    not_expected:
+      document_type_suggestion: technical_maintenance_contract
+  - name: документы.pdf
+    path: /Archive/случайныйКУмаркер/документы.pdf
+    not_expected:
+      document_type_suggestion: utility_receipt_package

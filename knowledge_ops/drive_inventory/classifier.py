@@ -128,6 +128,9 @@ VALID_TARGET_FIELDS = set(UNKNOWN_VALUES) | {
     "classification_status",
     "action_recommendation",
     "cloud_analysis_candidate",
+    "human_review_queue",
+    "path_context_valid",
+    "path_confidence_multiplier",
 }
 SENSITIVE_VALUES = {
     "owner_data",
@@ -157,6 +160,47 @@ SENSITIVE_VALUES = {
     "screenshot_sensitive",
     "correspondence_sensitive",
 }
+SAFE_SHORT_TOKENS = {
+    "ai",
+    "eps",
+    "svg",
+    "fom",
+    "hr",
+    "hsk",
+    "inn",
+    "kpp",
+    "nps",
+    "old",
+    "ota",
+    "pms",
+    "smm",
+    "sop",
+    "tmp",
+    "wbk",
+    "tl",
+    "~$",
+    "ан.",
+    "апп",
+    "апс",
+    "бик",
+    "дду",
+    "дкп",
+    "инн",
+    "итс",
+    "кпп",
+    "мчс",
+    "ндс",
+    "ота",
+    "пиб",
+    "пко",
+    "ппр",
+    "рко",
+    "смм",
+    "уф",
+    "ук",
+    "упд",
+    "хск",
+}
 ENTITY_PATTERNS: Dict[str, Pattern[str]] = {
     "unit_number_detected": re.compile(r"\b(?:ап\.?|апарт\.?|апартамент|apt|unit)\s*№?\s*(\d{2,4})\b", re.IGNORECASE),
     "premise_number_detected": re.compile(r"\b(?:пом\.?|помещение)\s*№?\s*(\d+\s*[-]?\s*[НH]?)\b", re.IGNORECASE),
@@ -175,6 +219,7 @@ ENTITY_PATTERNS: Dict[str, Pattern[str]] = {
     "INN_detected": re.compile(r"\bИНН\s*[:№]?\s*(\d{10,12})\b", re.IGNORECASE),
     "KPP_detected": re.compile(r"\bКПП\s*[:№]?\s*(\d{9})\b", re.IGNORECASE),
     "OGRN_detected": re.compile(r"\bОГРН\s*[:№]?\s*(\d{13,15})\b", re.IGNORECASE),
+    "BIK_detected": re.compile(r"\bБИК\s*[:№]?\s*(\d{9})\b", re.IGNORECASE),
     "bank_account_detected": re.compile(r"\b\d{20}\b"),
     "passport_marker_detected": re.compile(r"\b(?:паспорт|passport|серия\s+\d{4}|выдан)\b", re.IGNORECASE),
     "legal_entity_marker_detected": re.compile(r"\b(?:ООО|АО|ИП|ИНН|КПП|ОГРН|БИК)\b", re.IGNORECASE),
@@ -427,7 +472,7 @@ class MetadataClassifier:
         hits.extend(self._path_hits(item))
         hits.extend(self._text_hits(item, "filename", item.name))
         hits.extend(self._extension_hits(item))
-        hits.extend(self._text_hits(item, "sensitivity", f"{item.full_path} {item.name}"))
+        hits.extend(self._text_hits(item, "sensitivity", metadata_context_text(item)))
         hits.extend(self._mixed_hits(item, "media"))
         hits.extend(self._mixed_hits(item, "cleanup"))
 
@@ -440,10 +485,14 @@ class MetadataClassifier:
 
     def _path_hits(self, item: DriveInventoryItem) -> List[RuleHit]:
         segments = [segment for segment in item.full_path.split("/") if segment]
+        normalized_segments = [self.normalize_cache.normalize(segment) for segment in segments]
+        artstudio_base_index = next((index for index, segment in enumerate(normalized_segments) if segment == "artstudio"), None)
         hits = []
         total = max(1, len(segments))
         for index, segment in enumerate(segments):
-            normalized = self.normalize_cache.normalize(segment)
+            normalized = normalized_segments[index]
+            if artstudio_base_index is not None and index > artstudio_base_index:
+                continue
             depth_weight = path_depth_weight(index, total)
             candidates = self.indexes["path"].candidates_for_text(normalized, self.strict_full_scan)
             self.diagnostics.candidate_rule_counts.append(len(candidates))
@@ -482,7 +531,7 @@ class MetadataClassifier:
         return hits
 
     def _mixed_hits(self, item: DriveInventoryItem, source: str) -> List[RuleHit]:
-        text = f"{item.full_path} {item.name}"
+        text = metadata_context_text(item)
         normalized = self.normalize_cache.normalize(text)
         extension = self.normalize_cache.normalize(item.extension).lstrip(".")
         mime_type = (item.mime_type or "").lower()
@@ -642,6 +691,16 @@ def rule_matches_text(rule: ClassificationRule, normalized_text: str, raw_text: 
 
 def extension_matches(rule: ClassificationRule, extension: str, mime_type: str) -> bool:
     return extension in rule.extensions or any(mime_type.startswith(prefix) for prefix in rule.mime_prefixes)
+
+
+def metadata_context_text(item: DriveInventoryItem) -> str:
+    if is_inside_auto_structured_artstudio_base(item.full_path):
+        return item.name
+    return f"{item.full_path} {item.name}"
+
+
+def is_inside_auto_structured_artstudio_base(full_path: str) -> bool:
+    return any(normalize_name(segment) == "artstudio" for segment in (full_path or "").split("/") if segment)
 
 
 def path_depth_weight(index: int, total: int) -> float:
@@ -820,11 +879,21 @@ def build_reason(item: DriveInventoryItem, hits: List[RuleHit]) -> str:
     return "; ".join(parts)
 
 
+def append_reason(existing: str, addition: str) -> str:
+    if not existing:
+        return addition
+    if addition in existing:
+        return existing
+    return f"{existing}; {addition}"
+
+
 def enrich_v3_classification(item: DriveInventoryItem, hits: List[RuleHit]) -> None:
     apply_name_based_overrides(item)
     extract_metadata_entities(item)
     apply_field_confidence_and_evidence(item)
     apply_sensitivity_flags(item)
+    apply_priority_overrides(item)
+    apply_artstudio_base_guard(item)
     apply_duplicate_sensitive_overrides(item)
     apply_ocr_and_cloud_candidates(item)
     item.human_review_queue = choose_human_review_queue(item)
@@ -833,22 +902,146 @@ def enrich_v3_classification(item: DriveInventoryItem, hits: List[RuleHit]) -> N
 
 def apply_name_based_overrides(item: DriveInventoryItem) -> None:
     normalized = normalize_name(item.name)
+    extension = (item.extension or "").lower().lstrip(".")
+    system_type_by_name = {
+        "thumbs.db": "thumbs_db",
+        ".ds store": "ds_store",
+        "desktop.ini": "desktop_ini",
+        "latest_by_period.json": "generated_cache_json",
+        "naz.xml": "empty_xml",
+        "themedata.thmx": "unknown_binary",
+    }
+    system_type_by_extension = {
+        "tmp": "office_temp_lock",
+        "lnk": "shortcut",
+        "wbk": "backup_file",
+    }
     if normalized == "thumbs.db":
-        item.document_family_suggestion = "system_file"
         item.document_type_suggestion = "thumbs_db"
     elif normalized == ".ds store":
-        item.document_family_suggestion = "system_file"
         item.document_type_suggestion = "ds_store"
     elif normalized == "desktop.ini":
-        item.document_family_suggestion = "system_file"
         item.document_type_suggestion = "desktop_ini"
     elif normalized.startswith("~$"):
-        item.document_family_suggestion = "temporary_file"
         item.document_type_suggestion = "office_temp_lock"
-    if any(token in normalized for token in ["подпись", "печать", "signature", "stamp"]):
+    elif normalized in system_type_by_name:
+        item.document_type_suggestion = system_type_by_name[normalized]
+    elif extension in system_type_by_extension:
+        item.document_type_suggestion = system_type_by_extension[extension]
+    if item.document_type_suggestion in {"thumbs_db", "ds_store", "desktop_ini", "office_temp_lock", "generated_cache_json", "empty_xml", "shortcut", "backup_file"}:
+        item.document_family_suggestion = "temporary_file" if item.document_type_suggestion in {"office_temp_lock", "backup_file"} else "system_file"
+        item.department_suggestion = "Trash / System / Temporary"
+        item.function_suggestion = "system_cleanup"
+        item.process_suggestion = "system_cleanup"
+        item.sensitivity_suggestion = "system_trash"
+        item.cleanup_category = "system_trash_candidate"
+        item.lifecycle_status = "temp_system"
+        item.classification_status = "CLASSIFIED_SYSTEM_TRASH"
+
+
+def apply_priority_overrides(item: DriveInventoryItem) -> None:
+    text = normalize_name(f"{item.full_path} {item.name}")
+    path = normalize_name(item.full_path)
+    name = normalize_name(item.name)
+
+    if any(token in text for token in ["подпись&печать", "подпись", "печать", "signature", "stamp"]):
+        item.document_family_suggestion = "brand_asset"
+        if any(token in text for token in ["печать", "stamp"]):
+            item.document_type_suggestion = "company_stamp_image"
+        else:
+            item.document_type_suggestion = "signature_image"
         item.sensitivity_suggestion = "signature_seal_sensitive"
         item.action_recommendation = "DO_NOT_TOUCH"
         item.cleanup_category = "legal_hold_review"
+        item.priority_for_human_review = "high"
+
+    if "отдел продаж" in path and "договор" in path:
+        item.department_suggestion = "Sales / отдел продаж"
+        item.function_suggestion = "corporate_clients"
+        item.process_suggestion = "sales"
+        item.sensitivity_suggestion = "commercial"
+        item.cleanup_category = "contract_archive_review"
+        if "договор" in name or "contract" in name:
+            item.document_family_suggestion = "contract"
+            item.document_type_suggestion = "corporate_client_contract"
+
+    if "front office" in path and "документы по номерам в управлении" in path:
+        item.department_suggestion = "Owner Relations / отдел по работе с собственниками"
+        item.function_suggestion = "owner_contracts"
+        item.document_family_suggestion = "owner_document"
+        item.document_type_suggestion = "managed_units_registry"
+        item.sensitivity_suggestion = "owner_contract"
+        item.cleanup_category = "owner_contract_review"
+
+    if "housekeeping" in path and "отчеты" in path and re.search(r"\b20\d{2}\b", item.full_path):
+        item.department_suggestion = "Housekeeping / ХСК / HSK / HSKP"
+        item.function_suggestion = "housekeeping_reporting"
+        item.document_family_suggestion = "report"
+        item.document_type_suggestion = "housekeeping_daily_report"
+        item.process_suggestion = "room_cleaning"
+        item.sensitivity_suggestion = "operational"
+        item.cleanup_category = "keep_review"
+
+    if "chatexport" in text:
+        item.source_origin = "WhatsApp_or_messenger_export"
+        item.function_suggestion = "chat_export_processing"
+        item.lifecycle_status = "chat_exported"
+        item.sensitivity_suggestion = "correspondence_sensitive"
+        item.cleanup_category = "chat_export_review"
+        if name == "messages.html":
+            item.document_family_suggestion = "archive"
+            item.document_type_suggestion = "chat_export_messages_html"
+        elif name == "result.json":
+            item.document_family_suggestion = "archive"
+            item.document_type_suggestion = "chat_export_metadata_json"
+        elif name.endswith("_thumb.jpg") or name.endswith("thumb.jpg"):
+            item.document_family_suggestion = "photo_asset"
+            item.document_type_suggestion = "chat_thumbnail_image"
+            item.media_subtype = "chat_thumbnail_image"
+            item.image_subtype = "chat_thumbnail_image"
+
+    if item.document_family_suggestion == "template" and item.sensitivity_suggestion == "employee_data":
+        personal_markers = [
+            item.passport_marker_detected,
+            item.SNILS_detected,
+            item.phone_detected,
+            item.email_detected,
+            item.INN_detected,
+            item.bank_account_detected,
+        ]
+        if not any(personal_markers):
+            item.sensitivity_suggestion = "HR"
+
+
+def apply_artstudio_base_guard(item: DriveInventoryItem) -> None:
+    segments = [normalize_name(segment) for segment in (item.full_path or "").split("/") if segment]
+    if "artstudio" not in segments:
+        return
+
+    item.source_origin = "auto_structured_artstudio_base"
+    item.path_context_valid = False
+    item.path_confidence_multiplier = 0.0
+    item.path_confidence = "ignored_auto_structured"
+    item.source_origin_confidence = "high"
+    if item.cleanup_category in {"", "unknown_review", "knowledge_base_review", "brand_review", "marketing_review"}:
+        item.cleanup_category = "structure_review_later"
+
+    strong_non_path_signal = (
+        item.filename_confidence in {"medium", "high"}
+        or item.extension_confidence in {"medium", "high"}
+        or bool(item.content_based_document_type)
+        or bool(item.ocr_document_type_suggestion)
+        or item.cleanup_category == "system_trash_candidate"
+        or item.document_type_suggestion not in UNKNOWN_VALUES["document_type_suggestion"]
+        and item.matched_filename_rules
+    )
+    if not strong_non_path_signal:
+        item.classification_status = "NEEDS_REVIEW"
+        item.human_review_queue = "unknown_classification_review"
+    item.reason = append_reason(
+        item.reason,
+        "ARTSTUDIO base path ignored as business context because it was auto-structured before analysis.",
+    )
 
 
 def extract_metadata_entities(item: DriveInventoryItem) -> None:
@@ -902,6 +1095,7 @@ def apply_sensitivity_flags(item: DriveInventoryItem) -> None:
         ("INN_detected", "tax_details"),
         ("KPP_detected", "tax_details"),
         ("OGRN_detected", "tax_details"),
+        ("BIK_detected", "bank_details"),
         ("bank_account_detected", "bank_details"),
     ]:
         if getattr(item, field_name):
@@ -961,6 +1155,12 @@ def apply_ocr_and_cloud_candidates(item: DriveInventoryItem) -> None:
 
 
 def choose_human_review_queue(item: DriveInventoryItem) -> str:
+    if item.sensitivity_suggestion == "signature_seal_sensitive":
+        return "sensitive_data_review"
+    if item.cleanup_category == "structure_review_later" or item.path_context_valid is False:
+        if item.classification_status in {"UNKNOWN", "NEEDS_REVIEW"}:
+            return "unknown_classification_review"
+        return "structure_review"
     if item.cloud_analysis_approval_required:
         return "cloud_ai_approval_review"
     if item.conflict_flags or "content_metadata_conflict" in item.reason:
@@ -1004,6 +1204,7 @@ def build_classification_reason(item: DriveInventoryItem) -> str:
         "invoice_number_detected",
         "cadastral_number_detected",
         "INN_detected",
+        "BIK_detected",
         "bank_account_detected",
     ]
     detected = [field for field in entity_fields if getattr(item, field)]
@@ -1081,6 +1282,7 @@ def validate_rule_configs(config: InventoryConfig) -> RuleValidationReport:
         "sensitivity": config.sensitivity_rules_config,
         "media": config.media_rules_config,
         "cleanup": config.cleanup_rules_config,
+        "content": config.content_rules_config,
     }
     for source, path in source_paths.items():
         seen_ids: Set[str] = set()
@@ -1131,7 +1333,7 @@ def validate_rule_configs(config: InventoryConfig) -> RuleValidationReport:
             seen_signatures.add(signature)
             for token in raw.get("tokens", []) or raw.get("keywords", []) or []:
                 normalized = normalize_name(str(token))
-                if len(normalized) <= 3:
+                if len(normalized) <= 3 and normalized not in SAFE_SHORT_TOKENS:
                     warnings.append({"source": source, "rule_id": rule_id, "message": f"very short token: {token}"})
     if not config.skip_google_sheets:
         errors.append({"source": "policy", "rule_id": "", "message": "Google Sheets skip must remain enabled"})

@@ -4,6 +4,8 @@ import unittest
 import tempfile
 from pathlib import Path
 
+import yaml
+
 from knowledge_ops.drive_inventory.classifier import MetadataClassifier, classify_item, validate_rule_configs
 from knowledge_ops.drive_inventory.duplicate_detector import mark_exact_duplicates, mark_version_candidates
 from knowledge_ops.drive_inventory.models import SHEETS_MIME, DriveInventoryItem
@@ -76,19 +78,43 @@ class DriveInventoryClassifierTest(unittest.TestCase):
         self.assertEqual(item.sensitivity_suggestion, "owner_contract")
 
     def assert_classifies(self, path, name, expected):
+        extension = split_extension(name, "application/pdf")[1] or "pdf"
+        mime_type = {
+            "jpg": "image/jpeg",
+            "jpeg": "image/jpeg",
+            "png": "image/png",
+            "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }.get(extension, "application/pdf")
         item = DriveInventoryItem(
             file_id="x",
             name=name,
             normalized_name=normalize_name(name),
-            mime_type="application/pdf",
+            mime_type=mime_type,
             object_kind="file",
-            extension=split_extension(name, "application/pdf")[1] or "pdf",
+            extension=extension,
             full_path=path,
         )
         classify_item(item)
         for field, value in expected.items():
             self.assertEqual(getattr(item, field), value, f"{field} for {path} / {name}")
         return item
+
+    def test_v31_real_drive_pattern_fixtures(self):
+        fixture_path = Path("tests/fixtures/classification_v3_real_patterns.yml")
+        data = yaml.safe_load(fixture_path.read_text(encoding="utf-8"))
+        for case in data["cases"]:
+            item = self.assert_classifies(case["path"], case["name"], case.get("expected", {}))
+            for field, value in case.get("not_expected", {}).items():
+                self.assertNotEqual(getattr(item, field), value, f"{field} for {case['path']}")
+            if item.source_origin == "auto_structured_artstudio_base":
+                self.assertIn(
+                    "ARTSTUDIO base path ignored as business context because it was auto-structured before analysis.",
+                    item.classification_reason,
+                )
+        for case in data["negative_cases"]:
+            item = self.assert_classifies(case["path"], case["name"], {})
+            for field, value in case.get("not_expected", {}).items():
+                self.assertNotEqual(getattr(item, field), value, f"{field} for {case['path']}")
 
     def test_object_detection_v2(self):
         self.assert_classifies("/Public - копия/Отдел по работе с собственниками/2Советская", "file.pdf", {"object_suggestion": "ARTSTUDIO Nevsky"})
@@ -137,7 +163,7 @@ class DriveInventoryClassifierTest(unittest.TestCase):
     def test_v3_extracts_entities_review_queue_and_cloud_approval(self):
         item = self.assert_classifies(
             "/ARTSTUDIO Moskovsky/Выписки ЕГРН/апартамент 120",
-            "Договор № АМ-120 ИНН 7812345678 78:12:1234567:10 scan.pdf",
+            "Договор № АМ-120 ИНН 7812345678 БИК 044525225 78:12:1234567:10 scan.pdf",
             {
                 "object_suggestion": "ARTSTUDIO Moskovsky",
                 "human_review_queue": "cloud_ai_approval_review",
@@ -145,7 +171,9 @@ class DriveInventoryClassifierTest(unittest.TestCase):
         )
         self.assertEqual(item.contract_number_detected, "АМ-120")
         self.assertEqual(item.INN_detected, "7812345678")
+        self.assertEqual(item.BIK_detected, "044525225")
         self.assertEqual(item.cadastral_number_detected, "78:12:1234567:10")
+        self.assertIn("bank_details", item.sensitivity_flags)
         self.assertTrue(item.ocr_candidate)
         self.assertEqual(item.cloud_analysis_recommended_service, "Document AI")
         self.assertTrue(item.cloud_analysis_approval_required)

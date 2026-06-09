@@ -479,6 +479,7 @@ cleanup_categories:
   - system_trash_candidate
   - temp_file_candidate
   - chat_export_review
+  - structure_review_later
   - template_review
   - shortcut_review
   - unknown_review
@@ -499,6 +500,7 @@ human_review_queues:
   - conflict_review
   - OCR_review
   - knowledge_base_review
+  - structure_review
 action_recommendations:
   - KEEP_AS_IS
   - REVIEW_REQUIRED

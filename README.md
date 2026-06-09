@@ -116,6 +116,8 @@ python -m knowledge_ops.drive_inventory validate-rules \
 
 ## Classification V3 / Deep Classification Layer
 
+V3.1 adds real Drive pattern hardening: contextual short abbreviations, priority overrides and protection from false path context in `/ARTSTUDIO/`. The auto-structured `/ARTSTUDIO/` subfolders are treated as staging markers, not as reliable business taxonomy; files there are classified by filename, extension, MIME, metadata, content inspection and later OCR/content evidence.
+
 V3 добавляет расширенную taxonomy, regex entity extraction, confidence/evidence fields, OCR/cloud candidates, human review queues и отдельные `classification_v3_*` отчеты. OCR и Cloud AI остаются выключенными по умолчанию; текущий слой только формирует кандидатов и approval queues.
 
 Основные документы: [docs/classification_v3.md](docs/classification_v3.md), [docs/ocr_pipeline.md](docs/ocr_pipeline.md), [docs/human_review_queues.md](docs/human_review_queues.md), [docs/classification_rules_guide.md](docs/classification_rules_guide.md).
