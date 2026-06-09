@@ -1,6 +1,7 @@
 rules:
   - rule_id: utility_receipts_filename
-    tokens: ["КУ", "Квитанции КУ", "Реестр КУ", "коммунальные квитанции"]
+    tokens: ["Квитанции КУ", "Реестр КУ", "коммунальные квитанции"]
+    regex_patterns: ["\\b(?:КУ/Квитанции|Начисления\\s+КУ|Реестр\\s+КУ|Квитанции\\s+КУ|коммунальн\\w+\\s+услуг\\w*)\\b"]
     target_fields: {department_suggestion: "Finance", function_suggestion: "utilities_accounting", document_family_suggestion: "utility_document", document_type_suggestion: "utility_receipt_package", process_suggestion: "utilities", sensitivity_suggestion: "financial", cleanup_category: "utility_review"}
     weight: 7
   - rule_id: utility_accrual_filename
@@ -64,7 +65,8 @@ rules:
     target_fields: {document_family_suggestion: "contract", document_type_suggestion: "technical_maintenance_contract", function_suggestion: "owner_technical_maintenance", process_suggestion: "technical_maintenance", sensitivity_suggestion: "legal_contract", cleanup_category: "owner_contract_review"}
     weight: 6
   - rule_id: contract_agency_filename
-    tokens: ["Агентские договоры", "Агентский", "Агенский", "АД", "agency"]
+    tokens: ["Агентские договоры", "Агентский", "Агенский", "agency"]
+    regex_patterns: ["\\b(?:Агентск\\w+.*\\bАД\\b|\\bАД\\b.*Агентск\\w+|АПП\\s+к\\s+АД|Приложение\\s+к\\s+АД)\\b"]
     target_fields: {document_family_suggestion: "contract", document_type_suggestion: "agency_contract", function_suggestion: "owner_contracts", process_suggestion: "owner_contracting", sensitivity_suggestion: "owner_contract", cleanup_category: "owner_contract_review"}
     weight: 5
   - rule_id: contract_sale_ddu_filename
@@ -96,12 +98,13 @@ rules:
     target_fields: {document_family_suggestion: "financial_document", document_type_suggestion: "invoice", function_suggestion: "finance_accounting", process_suggestion: "accounting", sensitivity_suggestion: "financial"}
     weight: 7
   - rule_id: commercial_offer_filename
-    tokens: ["КП", "коммерческое предложение", "смета", "спецификация"]
+    tokens: ["коммерческое предложение", "смета", "спецификация"]
+    regex_patterns: ["\\b(?:КП\\s+и\\s+сч[её]та|КП\\s*\\+\\s*сч[её]та|КП\\s+по\\s+\\w+|коммерческ\\w+\\s+предложен\\w+)\\b"]
     target_fields: {document_family_suggestion: "procurement_document", document_type_suggestion: "procurement_invoice", function_suggestion: "procurement_and_suppliers", process_suggestion: "procurement", sensitivity_suggestion: "supplier_pricing"}
     weight: 4
   - rule_id: hr_timesheet_filename
     tokens: ["табель", "табели", "график работы", "vacation", "отпуск", "приказ", "должностная инструкция"]
-    target_fields: {document_family_suggestion: "HR_document", document_type_suggestion: "timesheet", function_suggestion: "staff_schedules", process_suggestion: "payroll_or_timesheet", sensitivity_suggestion: "HR"}
+    target_fields: {department_suggestion: "HR / кадры", document_family_suggestion: "HR_document", document_type_suggestion: "timesheet", function_suggestion: "staff_schedules", process_suggestion: "payroll_or_timesheet", sensitivity_suggestion: "HR"}
     weight: 5
   - rule_id: sop_instruction_filename
     tokens: ["SOP", "регламент", "стандарт", "инструкция", "алгоритм", "памятка", "чек-лист", "checklist"]
@@ -124,9 +127,13 @@ rules:
     target_fields: {department_suggestion: "SMM", document_family_suggestion: "photo_asset", document_type_suggestion: "SMM_photo", function_suggestion: "photo_archive", process_suggestion: "marketing_photo", sensitivity_suggestion: "publication_review_required", cleanup_category: "media_review"}
     weight: 5
   - rule_id: brand_design_filename
-    tokens: ["брендбук", "логотип", "logo", "макет", "баннер", "poster", "афиша", "AI", "EPS", "SVG"]
+    tokens: ["брендбук", "brandbook", "логотип", "logo", "макет", "баннер", "poster", "афиша", "AI", "EPS", "SVG"]
     target_fields: {department_suggestion: "Brand / Design", document_family_suggestion: "brand_asset", document_type_suggestion: "logo", function_suggestion: "brand_assets", process_suggestion: "brand_management", sensitivity_suggestion: "brand_sensitive", cleanup_category: "marketing_review"}
     weight: 5
+  - rule_id: brandbook_filename
+    tokens: ["брендбук", "brandbook"]
+    target_fields: {department_suggestion: "Brand / Design", document_family_suggestion: "brand_asset", document_type_suggestion: "brandbook", function_suggestion: "brand_assets", process_suggestion: "brand_management", sensitivity_suggestion: "brand_sensitive", cleanup_category: "brand_review"}
+    weight: 8
   - rule_id: report_analytics_filename
     tokens: ["отчет", "отчёт", "NPS", "analytics", "dashboard", "revenue report", "occupancy", "market analysis"]
     target_fields: {department_suggestion: "Analytics / отчётность", document_family_suggestion: "report", document_type_suggestion: "monthly_report", function_suggestion: "reporting_and_analytics", process_suggestion: "analytics", sensitivity_suggestion: "commercial"}

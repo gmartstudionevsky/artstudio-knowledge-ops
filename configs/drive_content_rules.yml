@@ -5,9 +5,9 @@ rules:
     regex_patterns: ["\\b(арендодатель|арендатор|исполнитель|заказчик|собственник)\\b", "\\bИНН\\s*[:№]?\\s*\\d{10,12}\\b", "\\bБИК\\s*[:№]?\\s*\\d{9}\\b"]
     weight: 5
     target_fields:
-      document_type_suggestion: договор
-      department_suggestion: юридический блок
-      process_suggestion: договор управления / аренды
+      document_type_suggestion: service_contract
+      department_suggestion: Legal
+      process_suggestion: owner_contracting
       audience_suggestion: внутреннее использование
     sensitivity_flags: ["legal_contract", "inn", "bank_details"]
     explanation: "Договорные формулировки, стороны и реквизиты."
@@ -17,8 +17,8 @@ rules:
     regex_patterns: ["\\bакт\\s+(при[её]ма-передачи|возврата|выполненных работ|оказанных услуг)\\b"]
     weight: 4
     target_fields:
-      document_type_suggestion: акт
-      department_suggestion: документооборот
+      document_type_suggestion: acceptance_transfer_act
+      department_suggestion: Legal
     sensitivity_flags: ["legal_contract"]
     explanation: "Актовые формулировки и признаки передачи/приёмки."
   - rule_id: owner_relations
@@ -27,8 +27,8 @@ rules:
     regex_patterns: ["\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"]
     weight: 5
     target_fields:
-      department_suggestion: собственники / owner relations
-      process_suggestion: собственники в управлении
+      department_suggestion: Owner Relations / отдел по работе с собственниками
+      process_suggestion: owner_contracting
       audience_suggestion: собственники
     sensitivity_flags: ["owner_data", "cadastral_number"]
     explanation: "Материалы по собственникам, апартаментам или кадастру."
@@ -38,7 +38,7 @@ rules:
     weight: 4
     target_fields:
       department_suggestion: СПиР / Front Office / Reception
-      process_suggestion: check-in
+      process_suggestion: check_in
       audience_suggestion: сотрудники СПиР
     sensitivity_flags: ["guest_data"]
     explanation: "Операционные маркеры гостей, заезда, выезда и СПиР."
@@ -47,16 +47,17 @@ rules:
     keywords: ["уборка", "горничная", "супервайзер", "номерной фонд", "комплектация номера", "чек-лист уборки", "linen", "бельё", "белье", "полотенца", "расходники", "minibar"]
     weight: 3
     target_fields:
-      department_suggestion: ХСК / housekeeping
-      process_suggestion: уборка
+      department_suggestion: Housekeeping / ХСК / HSK / HSKP
+      process_suggestion: room_cleaning
     explanation: "Маркеры housekeeping и чек-листов уборки."
   - rule_id: engineering
     category: engineering
     keywords: ["заявка", "TeamJet", "инженер", "неисправность", "ремонт", "техническое обслуживание", "вентиляция", "электрика", "сантехника", "кондиционер", "оборудование", "ППР", "дефектная ведомость"]
     weight: 3
     target_fields:
-      department_suggestion: ИТС / инженерная служба
-      process_suggestion: техническая заявка
+      department_suggestion: Engineering / ИТС / техническая служба
+      document_type_suggestion: technical_request
+      process_suggestion: technical_maintenance
     sensitivity_flags: ["technical"]
     explanation: "Техническая служба, заявки, ремонт и оборудование."
   - rule_id: fire_security
@@ -64,8 +65,8 @@ rules:
     keywords: ["пожар", "эвакуация", "СОУЭ", "АПС", "сигнал пожар", "пожар 2", "МЧС", "охрана", "пропускной режим", "доступ", "видеонаблюдение"]
     weight: 4
     target_fields:
-      department_suggestion: безопасность / охрана / пожарная безопасность
-      process_suggestion: пожарная безопасность
+      department_suggestion: Fire Safety / пожарная безопасность
+      process_suggestion: fire_safety
     sensitivity_flags: ["security", "fire_safety"]
     explanation: "Пожарная безопасность, охрана или доступ."
   - rule_id: finance_accounting
@@ -74,9 +75,9 @@ rules:
     regex_patterns: ["\\b\\d{20}\\b", "\\bБИК\\s*[:№]?\\s*\\d{9}\\b"]
     weight: 5
     target_fields:
-      department_suggestion: финансы
-      document_type_suggestion: счёт
-      process_suggestion: финансы
+      department_suggestion: Finance
+      document_type_suggestion: invoice
+      process_suggestion: accounting
     sensitivity_flags: ["financial", "bank_details", "bik"]
     explanation: "Финансовые, бухгалтерские или платёжные маркеры."
   - rule_id: hr_staff
@@ -85,7 +86,8 @@ rules:
     weight: 4
     target_fields:
       department_suggestion: HR / кадры
-      process_suggestion: HR
+      document_type_suggestion: employee_personal_data_document
+      process_suggestion: HR_onboarding
       audience_suggestion: кадры
     sensitivity_flags: ["employee_data", "personal_data"]
     explanation: "HR, кадровые документы или данные сотрудников."
@@ -94,8 +96,8 @@ rules:
     keywords: ["брендбук", "логотип", "макет", "афиша", "баннер", "рекламная кампания", "SMM", "контент-план", "визуальная концепция", "презентация", "фотосъёмка", "фотосъемка"]
     weight: 3
     target_fields:
-      department_suggestion: маркетинг / SMM / бренд
-      process_suggestion: бренд / дизайн / медиа
+      department_suggestion: Marketing
+      process_suggestion: brand_management
     sensitivity_flags: ["brand_sensitive"]
     explanation: "Маркетинг, бренд или медиа."
   - rule_id: sop_knowledge_base
@@ -103,15 +105,15 @@ rules:
     keywords: ["стандарт", "регламент", "SOP", "инструкция", "алгоритм", "чек-лист", "порядок действий", "зона ответственности", "сотрудник обязан", "контроль выполнения", "версия документа"]
     weight: 4
     target_fields:
-      document_type_suggestion: SOP
-      process_suggestion: операционные стандарты
+      document_type_suggestion: checkin_sop
+      process_suggestion: staff_training
     explanation: "Регламент, SOP, инструкция или база знаний."
   - rule_id: consumer_mandatory_docs
     category: mandatory_docs
     keywords: ["уголок потребителя", "свидетельство", "лицензия", "сертификат", "правила оказания гостиничных услуг", "книга отзывов", "Роспотребнадзор", "обязательная информация"]
     weight: 4
     target_fields:
-      document_type_suggestion: лицензии / сертификаты / обязательные документы
+      document_type_suggestion: consumer_corner_document
       audience_suggestion: внешние органы / проверяющие
     sensitivity_flags: ["legal_contract"]
     explanation: "Обязательные документы и уголок потребителя."

@@ -499,6 +499,32 @@ def build_classification_quality_rows(items: List[DriveInventoryItem], diagnosti
     ]:
         for value, count in counter.most_common():
             rows.append({"metric": name, "value": str(count), "notes": value})
+    artstudio_base = [item for item in items if is_inside_artstudio_base(item)]
+    rows.extend(
+        [
+            {"metric": "auto_structured_artstudio_base_count", "value": str(len(artstudio_base)), "notes": "Files inside /ARTSTUDIO/ staging base."},
+            {
+                "metric": "files_inside_artstudio_base_with_invalid_path_context",
+                "value": str(sum(1 for item in artstudio_base if item.path_context_valid is False)),
+                "notes": "Path context intentionally ignored for auto-structured ARTSTUDIO base.",
+            },
+            {
+                "metric": "files_classified_by_filename_inside_artstudio_base",
+                "value": str(sum(1 for item in artstudio_base if item.filename_confidence in {"medium", "high"})),
+                "notes": "Filename rules, not ARTSTUDIO subfolders.",
+            },
+            {
+                "metric": "files_classified_by_content_inside_artstudio_base",
+                "value": str(sum(1 for item in artstudio_base if item.content_based_document_type)),
+                "notes": "Content inspection rules, not ARTSTUDIO subfolders.",
+            },
+            {
+                "metric": "files_still_unknown_inside_artstudio_base",
+                "value": str(sum(1 for item in artstudio_base if item.classification_status in {"UNKNOWN", "NEEDS_REVIEW"})),
+                "notes": "Needs filename/content/OCR/manual evidence.",
+            },
+        ]
+    )
     return rows
 
 
@@ -545,6 +571,7 @@ def write_classification_v3_reports(
     cloud_candidates: List[DriveInventoryItem],
 ) -> None:
     total = max(1, len(items))
+    artstudio_base = [item for item in items if is_inside_artstudio_base(item)]
     lines = [
         "# Classification V3 Report",
         "",
@@ -555,6 +582,11 @@ def write_classification_v3_reports(
         f"- OCR candidate count: {len(ocr_candidates)}",
         f"- Cloud AI candidate count: {len(cloud_candidates)}",
         f"- Conflict count: {len(conflicts)}",
+        f"- Auto-structured ARTSTUDIO base count: {len(artstudio_base)}",
+        f"- ARTSTUDIO base invalid path-context count: {sum(1 for item in artstudio_base if item.path_context_valid is False)}",
+        f"- ARTSTUDIO base classified by filename: {sum(1 for item in artstudio_base if item.filename_confidence in {'medium', 'high'})}",
+        f"- ARTSTUDIO base classified by content: {sum(1 for item in artstudio_base if item.content_based_document_type)}",
+        f"- ARTSTUDIO base still unknown/needs review: {sum(1 for item in artstudio_base if item.classification_status in {'UNKNOWN', 'NEEDS_REVIEW'})}",
         "",
         "## Object Distribution",
         counter_section("Objects", Counter(item.object_suggestion for item in items)),
@@ -576,6 +608,12 @@ def write_classification_v3_reports(
             "",
             "## Top Rules",
             counter_section("Rule matches", Counter({row["rule_id"]: int(row["count"]) for row in rule_summary})),
+            "",
+            "## V3.1 Real Drive Pattern Rules",
+            "- Top new V3.1 rules are visible in rule_match_summary.csv by rule_id and match_count.",
+            "- Risky short-token rules for АД, РД, ДД, КУ and КП were replaced with contextual phrases or regex guards.",
+            "- /ARTSTUDIO/ subfolders are ignored as business context because that base was auto-structured before analysis.",
+            "- Expected unknown-rate improvement areas: filename evidence, content inspection, OCR candidate review, and duplicate context.",
             "",
             "## Recommendations",
             "- Review unknown and conflict CSV files before changing rules.",
@@ -611,6 +649,10 @@ def write_classification_v3_reports(
     ]
     guide_lines.extend(f"- {row['value']}: {row['count']}" for row in human_queue_summary)
     (output / "human_review_guide.md").write_text("\n".join(guide_lines) + "\n", encoding="utf-8")
+
+
+def is_inside_artstudio_base(item: DriveInventoryItem) -> bool:
+    return any(segment.lower() == "artstudio" for segment in (item.full_path or "").split("/") if segment)
 
 
 def build_exact_duplicate_group_rows(items: List[DriveInventoryItem]) -> List[Dict[str, str]]:

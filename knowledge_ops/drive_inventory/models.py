@@ -83,6 +83,8 @@ INVENTORY_COLUMNS = [
     "cleanup_evidence",
     "source_origin",
     "source_origin_confidence",
+    "path_context_valid",
+    "path_confidence_multiplier",
     "media_subtype",
     "media_subtype_confidence",
     "image_subtype",
@@ -110,6 +112,7 @@ INVENTORY_COLUMNS = [
     "INN_detected",
     "KPP_detected",
     "OGRN_detected",
+    "BIK_detected",
     "bank_account_detected",
     "phone_detected",
     "email_detected",
@@ -234,6 +237,8 @@ class DriveInventoryItem:
     cleanup_evidence: str = ""
     source_origin: str = "unknown_origin"
     source_origin_confidence: str = "unknown"
+    path_context_valid: bool = True
+    path_confidence_multiplier: float = 1.0
     media_subtype: str = ""
     media_subtype_confidence: str = "unknown"
     image_subtype: str = ""
@@ -261,6 +266,7 @@ class DriveInventoryItem:
     INN_detected: str = ""
     KPP_detected: str = ""
     OGRN_detected: str = ""
+    BIK_detected: str = ""
     bank_account_detected: str = ""
     phone_detected: str = ""
     email_detected: str = ""

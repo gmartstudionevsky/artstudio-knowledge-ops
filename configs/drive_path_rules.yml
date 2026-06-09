@@ -1,42 +1,20 @@
 rules:
-  - rule_id: kb_control_center_path
-    tokens: ["00_CONTROL_CENTER", "Control Center"]
-    target_fields: {object_suggestion: "ARTSTUDIO Network / сеть ARTSTUDIO", department_suggestion: "General Management / GM", function_suggestion: "structured_knowledge_base", document_family_suggestion: "registry", process_suggestion: "archive_processing", sensitivity_suggestion: "operational", cleanup_category: "knowledge_base_review"}
-    weight: 9
-  - rule_id: kb_inbox_path
-    tokens: ["01_INBOX"]
-    target_fields: {object_suggestion: "ARTSTUDIO Network / сеть ARTSTUDIO", function_suggestion: "structured_knowledge_base", process_suggestion: "archive_processing", cleanup_category: "unknown_review"}
-    weight: 8
-  - rule_id: kb_brand_context_path
-    tokens: ["02_Brand_Context", "Brand Context"]
-    target_fields: {object_suggestion: "ARTSTUDIO Network / сеть ARTSTUDIO", department_suggestion: "Brand / Design", function_suggestion: "brand_assets", document_family_suggestion: "brand_asset", process_suggestion: "brand_management", sensitivity_suggestion: "brand_sensitive", cleanup_category: "brand_review"}
-    weight: 8
-  - rule_id: kb_object_data_path
-    tokens: ["03_Object_Data"]
-    target_fields: {object_suggestion: "ARTSTUDIO Network / сеть ARTSTUDIO", function_suggestion: "real_estate_documents", process_suggestion: "cadastral_data", cleanup_category: "knowledge_base_review"}
-    weight: 8
-  - rule_id: kb_standards_sop_path
-    tokens: ["04_Standards_SOP", "Standards SOP"]
-    target_fields: {object_suggestion: "ARTSTUDIO Network / сеть ARTSTUDIO", department_suggestion: "Training / аттестация", function_suggestion: "SOP_and_standards", document_family_suggestion: "standard_sop", process_suggestion: "staff_training", sensitivity_suggestion: "operational", cleanup_category: "knowledge_base_review"}
-    weight: 8
-  - rule_id: kb_official_sites_path
-    tokens: ["05_Official_Sites", "Official Sites"]
-    target_fields: {object_suggestion: "ARTSTUDIO Network / сеть ARTSTUDIO", department_suggestion: "Marketing", function_suggestion: "brand_assets", document_family_suggestion: "marketing_asset", process_suggestion: "brand_management", sensitivity_suggestion: "publication_review_required", cleanup_category: "marketing_review"}
-    weight: 8
-  - rule_id: kb_reviews_path
-    tokens: ["07_Reviews", "Reviews"]
-    target_fields: {object_suggestion: "ARTSTUDIO Network / сеть ARTSTUDIO", department_suggestion: "Analytics / Reporting", function_suggestion: "reporting_and_analytics", document_family_suggestion: "report", document_type_suggestion: "review_report", process_suggestion: "analytics", sensitivity_suggestion: "commercial"}
-    weight: 8
+  - rule_id: artstudio_base_auto_structured_marker
+    regex_patterns: ["^ARTSTUDIO$"]
+    target_fields: {source_origin: "auto_structured_artstudio_base", cleanup_category: "structure_review_later", path_context_valid: false, path_confidence_multiplier: 0.0}
+    weight: 0
   - rule_id: public_copy_archive_path
     tokens: ["Public - копия"]
     target_fields: {source_origin: "Public copy", function_suggestion: "old_public_archive", lifecycle_status: "exported_copy", cleanup_category: "archive_review"}
     weight: 5
   - rule_id: object_nevsky_path
-    tokens: ["ARTSTUDIO Nevsky", "Nevsky", "Невский", "АН", "AN", "2Советская", "2 Советская", "2-я Советская", "2-я Советская ул", "2-я Советская ул, д. 4б", "Советская", "Артстудио Невский", "Апарт Премиум Невский", "ApartPremium Nevsky", "АпартПремиум Невский", "Фотографии ARTSTUDIO Nevsky", "ПРИЕМ-ПЕРЕДАЧА АГЕНТСКИЙ СОВЕТСКАЯ"]
+    tokens: ["ARTSTUDIO Nevsky", "Nevsky", "Невский", "2Советская", "2 Советская", "2-я Советская", "2-я Советская ул", "2-я Советская ул, д. 4б", "Советская", "Артстудио Невский", "Апарт Премиум Невский", "ApartPremium Nevsky", "АпартПремиум Невский", "Фотографии ARTSTUDIO Nevsky", "ПРИЕМ-ПЕРЕДАЧА АГЕНТСКИЙ СОВЕТСКАЯ"]
+    regex_patterns: ["(?:^|[\\s/_\\-(])АН\\.(?:$|[\\s/_\\-)])"]
     target_fields: {object_suggestion: "ARTSTUDIO Nevsky"}
     weight: 7
   - rule_id: object_moskovsky_path
-    tokens: ["ARTSTUDIO Moskovsky", "Moskovsky", "Московский", "АМ", "AM", "Заозерная", "Заозёрная", "Заозерная к1", "Заозерная к2", "Передача Заозёрная", "Выписки Заоз", "ДОГОВОРЫ АРТСТУДИО МОСКОВСКИЙ", "ARTSTUDIO AM"]
+    tokens: ["ARTSTUDIO Moskovsky", "Moskovsky", "Московский", "Заозерная", "Заозёрная", "Заозерная к1", "Заозерная к2", "Передача Заозёрная", "Выписки Заоз", "ДОГОВОРЫ АРТСТУДИО МОСКОВСКИЙ", "ARTSTUDIO AM"]
+    regex_patterns: ["(?:^|[\\s/_\\-(])АМ\\s+Аренда(?:$|[\\s/_\\-)])"]
     target_fields: {object_suggestion: "ARTSTUDIO Moskovsky"}
     weight: 7
   - rule_id: object_m103_path
@@ -44,7 +22,7 @@ rules:
     target_fields: {object_suggestion: "ARTSTUDIO M103"}
     weight: 7
   - rule_id: object_network_rbi_path
-    tokens: ["RBI PM", "РБИ ПМ", "ЭР-БИ-АЙ ПМ", "УК", "управляющая компания", "сеть ARTSTUDIO", "Brand Context", "Standards SOP", "Control Center", "Official Sites", "OTA", "Reviews", "Legal Files", "Owner Investor", "Competitors Market"]
+    tokens: ["RBI PM", "РБИ ПМ", "ЭР-БИ-АЙ ПМ", "управляющая компания", "сеть ARTSTUDIO"]
     target_fields: {object_suggestion: "RBI PM / УК"}
     weight: 5
   - rule_id: object_apartpremium_path
@@ -52,11 +30,12 @@ rules:
     target_fields: {object_suggestion: "ApartPremium"}
     weight: 4
   - rule_id: owner_relations_path
-    tokens: ["Отдел по работе с собственниками", "Документы собственников", "Документы по номерам в управлении", "Реестры в управлении ВСЕ", "собственники", "Owner Investor"]
+    tokens: ["Отдел по работе с собственниками", "Документы собственников", "Документы по номерам в управлении", "Реестры в управлении ВСЕ", "собственники"]
     target_fields: {department_suggestion: "Owner Relations / отдел по работе с собственниками", function_suggestion: "owner_registry", document_family_suggestion: "owner_document", process_suggestion: "owner_reporting", audience_suggestion: "собственники", sensitivity_suggestion: "owner_data", cleanup_category: "sensitive_review"}
     weight: 6
   - rule_id: owner_contracts_path
-    tokens: ["Договоры Аренды", "Договоры аренды", "Агентские договоры", "Агентские (АД)", "Агентские (не исправлены)", "Агентский", "Агенский РД", "Агентский РД", "АМ Аренда РД", "Договор ТО(Техобслуживание)", "Договоры на ТО", "ДД", "РД", "ДКП", "ДДУ", "ДС ПСД&ЮДП", "Договор на Мебель"]
+    tokens: ["Договоры Аренды", "Договоры аренды", "Агентские договоры", "Агентские (АД)", "Агентские (не исправлены)", "Агентский", "Агенский РД", "Агентский РД", "АМ Аренда РД", "Договор ТО(Техобслуживание)", "Договоры на ТО", "ДКП", "ДДУ", "ДС ПСД&ЮДП", "Договор на Мебель"]
+    regex_patterns: ["\\b(?:Равный\\s+доход|Аренда\\s+РД|Агентск\\w+\\s+РД|АМ\\s+Аренда\\s+РД)\\b", "\\b(?:Динамический\\s+доход|Агентск\\w+\\s+ДД)\\b"]
     target_fields: {department_suggestion: "Договорной контур собственников", function_suggestion: "owner_contracts", document_family_suggestion: "contract", process_suggestion: "owner_contracting", sensitivity_suggestion: "owner_contract", cleanup_category: "owner_contract_review"}
     weight: 7
   - rule_id: owner_acceptance_path
@@ -68,7 +47,8 @@ rules:
     target_fields: {department_suggestion: "Owner Relations / отдел по работе с собственниками", function_suggestion: "cadastre_egrn", document_family_suggestion: "egrn_cadastre_document", document_type_suggestion: "owner_EGRN_extract", process_suggestion: "EGRN", sensitivity_suggestion: "EGRN_sensitive", cleanup_category: "sensitive_review"}
     weight: 7
   - rule_id: finance_accounting_path
-    tokens: ["КУ", "УПД", "квитанции на аванс", "КП и счета на закупку", "КП по кондеям", "перевыставления ТМЦ", "счета", "квитанции", "Finance", "Accounting", "бухгалтерия", "касса"]
+    tokens: ["УПД", "квитанции на аванс", "КП и счета на закупку", "КП по кондеям", "перевыставления ТМЦ", "счета", "квитанции", "Finance", "Accounting", "бухгалтерия", "касса"]
+    regex_patterns: ["\\b(?:КУ/Квитанции|Начисления\\s+КУ|Реестр\\s+КУ|Квитанции\\s+КУ|коммунальн\\w+\\s+услуг\\w*)\\b"]
     target_fields: {department_suggestion: "Finance", function_suggestion: "finance_accounting", document_family_suggestion: "financial_document", process_suggestion: "accounting", sensitivity_suggestion: "financial", cleanup_category: "sensitive_review"}
     weight: 6
   - rule_id: hr_path
@@ -120,7 +100,7 @@ rules:
     target_fields: {department_suggestion: "Analytics / отчётность", function_suggestion: "reporting_and_analytics", document_family_suggestion: "report", process_suggestion: "analytics"}
     weight: 5
   - rule_id: official_legal_path
-    tokens: ["Уголок потребителя", "Legal Files", "Compliance", "обязательные документы", "сертификаты", "лицензии", "МЧС", "Роспотребнадзор"]
+    tokens: ["Уголок потребителя", "Compliance", "обязательные документы", "сертификаты", "лицензии", "МЧС", "Роспотребнадзор"]
     target_fields: {department_suggestion: "Compliance / обязательные документы", function_suggestion: "legal_compliance", document_family_suggestion: "official_mandatory_document", process_suggestion: "legal_claims", sensitivity_suggestion: "legal_contract", cleanup_category: "legal_hold_review"}
     weight: 6
   - rule_id: source_public_copy_path
