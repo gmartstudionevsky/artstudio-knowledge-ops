@@ -17,6 +17,8 @@
 
 Google Sheets на первом этапе фиксируются только в `skipped_google_sheets.csv` и листе `Skipped Google Sheets`. Их содержимое не читается, не экспортируется, не хешируется и не классифицируется по внутренним данным. Это сделано намеренно: таблицы часто содержат персональные, финансовые и операционные данные, а текущий этап должен быть безопасным обзором.
 
+При этом Google Sheets остаются в `all_objects.csv` как metadata-only объекты, чтобы полный состав видимого Drive не терялся в downstream-аналитике.
+
 ## Как запустить локально
 
 Сначала установите зависимости:
@@ -58,7 +60,7 @@ python -m knowledge_ops.drive_inventory \
 - `--content-char-limit 20000` - максимум символов текста для классификации.
 - `--content-page-limit 20` - максимум страниц/слайдов для PDF/презентаций.
 - `--max-download-size-mb 25` - максимум размера скачивания для content inspection.
-- `--enable-ocr false` - OCR изображений выключен по умолчанию.
+- `--enable-ocr false` - OCR изображений и PDF без текстового слоя выключен по умолчанию; при `true` используется локальный Tesseract, без вызовов Cloud Vision API. В GitHub Actions Tesseract ставится workflow автоматически, локально его нужно установить отдельно.
 - `--enable-excel-content-inspection true` - читать обычные XLSX, но не native Google Sheets.
 - `--store-content-preview false` и `--store-sensitive-snippets false` - полный текст и чувствительные фрагменты не сохраняются.
 - `--include-content-hash` - считать SHA-256 для обычных файлов в пределах `max_download_bytes`.
@@ -97,12 +99,16 @@ Workflow `Drive Inventory Pipeline` запускается только вруч
 В `out/drive_inventory` создаются:
 
 - `inventory.xlsx`
+- `all_objects.csv`
+- `all_objects_ru.csv`
 - `inventory.csv`
 - `inventory_ru.csv`
 - `folders.csv`
 - `folders_ru.csv`
 - `skipped_google_sheets.csv`
 - `skipped_google_sheets_ru.csv`
+- `access_coverage.csv`
+- `access_coverage_ru.csv`
 - `exact_duplicates.csv`
 - `exact_duplicates_ru.csv`
 - `version_duplicate_candidates.csv`
@@ -127,7 +133,7 @@ Workflow `Drive Inventory Pipeline` запускается только вруч
 - `errors.csv`
 - `errors_ru.csv`
 
-`inventory.xlsx` содержит листы Summary, Inventory, Folders, Skipped Google Sheets, Exact Duplicates, Version Candidates, Semantic Candidates, Classification Review, Sensitivity Review, Migration Decision Plan, Content Inspection, Rule Matches, Content Sensitivity и Errors.
+`inventory.xlsx` содержит листы Summary, All Objects, Inventory, Folders, Skipped Google Sheets, Exact Duplicates, Version Candidates, Semantic Candidates, Classification Review, Sensitivity Review, Migration Decision Plan, Content Inspection, Rule Matches, Content Sensitivity, Access Coverage и Errors.
 
 ## Как читать статусы и дубли
 
@@ -136,6 +142,11 @@ Workflow `Drive Inventory Pipeline` запускается только вруч
 - `MARK_AS_DUPLICATE_CANDIDATE` - кандидат на дубль для ручного разбора.
 - `SENSITIVE_REVIEW_REQUIRED` - файл попал в чувствительную зону: персональные данные, договоры, финансы, HR, безопасность и подобное.
 - `REVIEW_REQUIRED` - требуется ручная проверка классификации или будущего решения.
+- `extracted_pdf_text` - текст найден в PDF без OCR.
+- `extracted_pdf_ocr` / `extracted_image_ocr` - текст получен локальным OCR.
+- `pdf_no_text_layer` - PDF не дал текстового слоя, OCR не был включен.
+- `ocr_unavailable` - OCR был включен, но runtime или Python-зависимости недоступны.
+- `ocr_failed` / `ocr_no_text` - OCR попытка не дала пригодного текста.
 
 `exact_duplicates.csv` основан на `md5Checksum + size`, `content_hash` или `export_hash`. `version_duplicate_candidates.csv` использует нормализацию имён и маркеры версий. `semantic_duplicate_candidates.csv` использует путь, название, тип и повторяющиеся номера договоров/актов/счетов без внешнего AI.
 

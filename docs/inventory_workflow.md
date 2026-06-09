@@ -32,12 +32,51 @@
 | `content_char_limit` | Лимит извлеченного текста на файл | `20000` |
 | `content_page_limit` | Лимит страниц PDF/слайдов | `20` |
 | `max_download_size_mb` | Лимит размера скачивания для content inspection | `25` |
+| `metadata_only_registry` | Запустить только полный metadata-only реестр всех видимых объектов | `false` |
+| `enable_ocr` | Включить локальный OCR изображений и PDF без текстового слоя | `false` |
 | `generate_ai_estimate` | Считать оценку будущего Cloud AI-анализа | `true` |
 
 Secrets:
 
 - `GOOGLE_SERVICE_ACCOUNT_JSON` — обязателен для GitHub Actions.
 - `GOOGLE_DELEGATED_USER` — опционален.
+
+## Рекомендуемые режимы запуска
+
+### 1. Полный metadata-only реестр
+
+Используйте, когда нужно сначала увидеть весь состав диска без скачивания файлов:
+
+- `metadata_only_registry=true`
+- `scope=all-accessible-drive`
+- `root_folder_id=` пусто
+
+В этом режиме workflow выполняет только этап `01 metadata map`, принудительно использует `max_files=0`, не читает содержимое и не запускает AI estimate. Главные артефакты: `all_objects.csv`, `inventory.csv`, `folders.csv`, `skipped_google_sheets.csv`, `access_coverage.csv`, `audit_report.md`, `inventory.xlsx`.
+
+### 2. Ограниченный проверочный прогон
+
+Используйте перед полной классификацией, чтобы проверить credentials, доступы, время выполнения и качество извлечения текста:
+
+- `metadata_only_registry=false`
+- `max_files=100`
+- `content_inspection_max_files=25`
+- `enable_ocr=false`
+- `generate_ai_estimate=true`
+
+### 3. Полная предварительная классификация
+
+Используйте после проверки ограниченного прогона:
+
+- `metadata_only_registry=false`
+- `max_files=0`
+- `content_inspection_max_files=0`
+- `content_char_limit=20000` или выше, если нужно больше сигнала для правил
+- `content_page_limit=20` или выше для длинных PDF/презентаций
+- `max_download_size_mb=25` или выше, если много крупных PDF
+- `enable_ocr=true`
+- `generate_ai_estimate=true`
+
+OCR выполняется локально в GitHub Actions через Tesseract и не вызывает Cloud Vision API. Если OCR runtime или поддержка конкретного файла недоступны, файл получает статус `ocr_unavailable`, `ocr_failed` или `ocr_no_text`, а инвентаризация продолжается.
 
 ## Этап 01 — metadata map
 
@@ -55,12 +94,16 @@ python -m knowledge_ops.drive_inventory \
 
 Результат:
 
+- `all_objects.csv`
+- `all_objects_ru.csv`
 - `inventory.csv`
 - `inventory_ru.csv`
 - `folders.csv`
 - `folders_ru.csv`
 - `skipped_google_sheets.csv`
 - `skipped_google_sheets_ru.csv`
+- `access_coverage.csv`
+- `access_coverage_ru.csv`
 - первичный `audit_report.md`
 
 Этот этап нужен для ранней диагностики доступа, масштаба и MIME-распределения.
@@ -72,7 +115,7 @@ python -m knowledge_ops.drive_inventory \
 Ограничения:
 
 - Google Sheets всегда пропускаются.
-- OCR выключен.
+- OCR включается только отдельным параметром `enable_ocr=true`.
 - Полный текст не сохраняется.
 - Чувствительные snippets не сохраняются.
 - Количество попыток ограничено `content_inspection_max_files`.
@@ -87,6 +130,7 @@ python -m knowledge_ops.drive_inventory \
   --content-char-limit 20000 \
   --content-page-limit 20 \
   --max-download-size-mb 25 \
+  --enable-ocr false \
   --store-content-preview false \
   --store-sensitive-snippets false \
   --dry-run true
@@ -123,6 +167,8 @@ python -m knowledge_ops.drive_inventory \
 Результат:
 
 - полный inventory;
+- полный all_objects registry, включая Google Sheets metadata-only;
+- access coverage report для проверки полноты видимого scope;
 - отчеты по точным дублям;
 - кандидаты на версионные и смысловые дубли;
 - sensitivity review;
@@ -162,8 +208,8 @@ python -m knowledge_ops.ai_analysis \
 1. Первый прогон: `max_files=100`, `content_inspection_max_files=25`.
 2. Проверка артефактов и ошибок доступа.
 3. Средний прогон: `max_files=1000`, `content_inspection_max_files=100`.
-4. Полный metadata-only прогон: `max_files=0`, content inspection выключен.
-5. Полный финальный прогон с content inspection только после проверки лимитов и времени выполнения.
+4. Полный metadata-only прогон: `metadata_only_registry=true`.
+5. Полный финальный прогон: `max_files=0`, `content_inspection_max_files=0`, `enable_ocr=true` только после проверки лимитов и времени выполнения.
 
 ## Что workflow не делает
 

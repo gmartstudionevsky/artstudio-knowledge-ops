@@ -11,7 +11,7 @@ from knowledge_ops.drive_inventory.models import DOCS_MIME, SHEETS_MIME, SLIDES_
 from knowledge_ops.drive_inventory.safety import ReadOnlyResourceProxy
 
 FILE_FIELDS = (
-    "nextPageToken, files("
+    "nextPageToken, incompleteSearch, files("
     "id,name,mimeType,size,md5Checksum,webViewLink,createdTime,modifiedTime,viewedByMeTime,"
     "owners(displayName,emailAddress),lastModifyingUser(displayName,emailAddress),parents,driveId,"
     "trashed,starred,shared,capabilities(canEdit,canShare,canDelete)"
@@ -23,6 +23,7 @@ class DriveInventoryClient:
     def __init__(self, service: Any, config: InventoryConfig):
         self.service = ReadOnlyResourceProxy(service) if config.safe_mode else service
         self.config = config
+        self.incomplete_search_detected = False
 
     def iter_all_accessible(self, max_files: int = 0) -> Iterator[Dict[str, Any]]:
         kwargs: Dict[str, Any] = {
@@ -60,7 +61,8 @@ class DriveInventoryClient:
                     return
 
     def get_file(self, file_id: str) -> Dict[str, Any]:
-        return self.service.files().get(fileId=file_id, fields=FILE_FIELDS.removeprefix("nextPageToken, files(").removesuffix(")"), supportsAllDrives=True).execute()
+        fields = FILE_FIELDS.removeprefix("nextPageToken, incompleteSearch, files(").removesuffix(")")
+        return self.service.files().get(fileId=file_id, fields=fields, supportsAllDrives=True).execute()
 
     def calculate_content_hash(self, file_obj: Dict[str, Any]) -> str:
         if file_obj.get("mimeType", "").startswith("application/vnd.google-apps."):
@@ -123,6 +125,8 @@ class DriveInventoryClient:
             if page_token:
                 kwargs["pageToken"] = page_token
             response = self.service.files().list(**kwargs).execute()
+            if response.get("incompleteSearch"):
+                self.incomplete_search_detected = True
             for file_obj in response.get("files", []):
                 count += 1
                 yield file_obj

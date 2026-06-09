@@ -15,6 +15,7 @@ from knowledge_ops.drive_inventory.scanner import InventoryResult
 
 FOLDER_COLUMNS = ["file_id", "name", "full_path", "depth", "file_count", "subfolder_count", "top_mime_types", "chaos_signals"]
 ERROR_COLUMNS = ["file_id", "name", "error"]
+ACCESS_COVERAGE_COLUMNS = ["metric", "value", "notes"]
 CONTENT_INSPECTION_COLUMNS = [
     "file_id",
     "name",
@@ -118,6 +119,9 @@ RU_HEADERS = {
     "classification_reason": "Причина классификации",
     "sensitivity_flag": "Флаг чувствительности",
     "error": "Ошибка",
+    "metric": "Метрика",
+    "value": "Значение",
+    "notes": "Примечание",
     "current_path": "Текущий путь",
     "suggested_object": "Предложенный объект",
     "suggested_department": "Предложенное подразделение",
@@ -165,7 +169,10 @@ def write_reports(result: InventoryResult, out_dir: str | Path) -> None:
     classification_review = [item for item in items if item.confidence in {"low", "medium"} or item.document_type_suggestion == "неизвестно"]
     sensitivity_review = [item for item in items if item.action_recommendation == "SENSITIVE_REVIEW_REQUIRED"]
     migration_rows = build_migration_plan(items)
+    coverage_rows = build_access_coverage(result)
 
+    write_csv(output / "all_objects.csv", INVENTORY_COLUMNS, (item.to_row() for item in result.items))
+    write_localized_csv(output / "all_objects_ru.csv", INVENTORY_COLUMNS, (item.to_row() for item in result.items))
     write_csv(output / "inventory.csv", INVENTORY_COLUMNS, (item.to_row() for item in items))
     write_localized_csv(output / "inventory_ru.csv", INVENTORY_COLUMNS, (item.to_row() for item in items))
     write_csv(output / "folders.csv", FOLDER_COLUMNS, folders)
@@ -192,6 +199,8 @@ def write_reports(result: InventoryResult, out_dir: str | Path) -> None:
     write_localized_csv(output / "content_sensitivity_flags_ru.csv", CONTENT_SENSITIVITY_COLUMNS, content_sensitivity_rows(result.items))
     write_csv(output / "errors.csv", ERROR_COLUMNS, result.errors)
     write_localized_csv(output / "errors_ru.csv", ERROR_COLUMNS, result.errors)
+    write_csv(output / "access_coverage.csv", ACCESS_COVERAGE_COLUMNS, coverage_rows)
+    write_localized_csv(output / "access_coverage_ru.csv", ACCESS_COVERAGE_COLUMNS, coverage_rows)
     write_tree(output / "drive_structure_tree.md", folders)
     write_audit_report(output / "audit_report.md", result, folders, exact, version, semantic, sensitivity_review)
     write_excel(
@@ -205,6 +214,7 @@ def write_reports(result: InventoryResult, out_dir: str | Path) -> None:
         classification_review,
         sensitivity_review,
         migration_rows,
+        coverage_rows,
     )
 
 
@@ -252,6 +262,31 @@ def build_migration_plan(items: List[DriveInventoryItem]) -> List[Dict[str, str]
                 "execution_status": "not_planned",
             }
         )
+    return rows
+
+
+def build_access_coverage(result: InventoryResult) -> List[Dict[str, str]]:
+    items = result.items
+    files = [item for item in items if item.object_kind == "file"]
+    folders = [item for item in items if item.object_kind == "folder"]
+    skipped_sheets = result.skipped_google_sheets
+    unmapped = [item for item in items if item.full_path.startswith("/Unmapped parent ")]
+    drive_counts = Counter(item.drive_id or "(my-drive-or-unknown)" for item in items)
+    status_counts = Counter(item.content_extract_status for item in items if item.content_inspection_enabled)
+    rows = [
+        {"metric": "scope", "value": result.scope, "notes": "Requested scan scope."},
+        {"metric": "total_listed_objects", "value": str(len(items)), "notes": "All listed objects, including skipped Google Sheets."},
+        {"metric": "files_in_inventory_csv", "value": str(len(files)), "notes": "Non-folder, non-Google-Sheets files."},
+        {"metric": "folders", "value": str(len(folders)), "notes": "Folders visible to the credentials."},
+        {"metric": "skipped_google_sheets", "value": str(len(skipped_sheets)), "notes": "Metadata-only; content/export/hash skipped by policy."},
+        {"metric": "unmapped_parent_paths", "value": str(len(unmapped)), "notes": "Parent folder not present in current listing, often due to scope/access/limit."},
+        {"metric": "errors", "value": str(len(result.errors)), "notes": "Per-file processing errors captured without stopping the run."},
+        {"metric": "limitations", "value": str(len(result.limitations)), "notes": "See audit_report.md for details."},
+    ]
+    for drive_id, count in drive_counts.most_common():
+        rows.append({"metric": "objects_by_drive_id", "value": str(count), "notes": drive_id})
+    for status, count in status_counts.most_common():
+        rows.append({"metric": "content_extract_status", "value": str(count), "notes": status})
     return rows
 
 
@@ -348,10 +383,14 @@ def write_audit_report(
         f"- Всего объектов в листинге: {len(result.items)}",
         f"- Папок: {len([item for item in result.items if item.object_kind == 'folder'])}",
         f"- Файлов в реестре: {len(files)}",
+        f"- Полный реестр всех увиденных объектов: all_objects.csv / all_objects_ru.csv",
         f"- Google Sheets пропущено: {len(result.skipped_google_sheets)}",
+        f"- Объектов с частичным путем из-за unmapped parent: {sum(1 for item in result.items if item.full_path.startswith('/Unmapped parent '))}",
         f"- Content inspection попыток: {sum(1 for item in result.items if item.content_inspection_enabled)}",
         f"- Текст успешно извлечен: {sum(1 for item in result.items if item.content_extracted)}",
         f"- Пропущено по типу/политике: {sum(1 for item in result.items if item.content_extract_status.startswith('skipped') or item.content_extract_status in {'unsupported_type', 'unsupported_legacy_binary', 'archive_metadata_only', 'ocr_disabled'})}",
+        f"- OCR извлечений: {sum(1 for item in result.items if item.content_extract_status in {'extracted_image_ocr', 'extracted_pdf_ocr'})}",
+        f"- OCR недоступен/не дал текста: {sum(1 for item in result.items if item.content_extract_status in {'ocr_unavailable', 'ocr_no_text', 'ocr_failed'})}",
         f"- Пропущено по размеру: {sum(1 for item in result.items if 'file_too_large' in item.content_extract_error or item.content_extract_status == 'skipped_too_large')}",
         f"- Ошибок извлечения текста: {sum(1 for item in result.items if item.content_extract_status == 'extract_error')}",
         "",
@@ -364,6 +403,7 @@ def write_audit_report(
         counter_section("Чувствительность", Counter(item.sensitivity_suggestion for item in files)),
         counter_section("Типы документов по содержимому", Counter(item.content_based_document_type for item in files if item.content_based_document_type)),
         counter_section("Флаги чувствительности по содержимому", Counter(flag for item in files for flag in item.content_sensitivity_flags.split(";") if flag)),
+        counter_section("Статусы извлечения содержимого", Counter(item.content_extract_status for item in result.items if item.content_inspection_enabled)),
         "",
         "## Папки с высокой плотностью файлов",
     ]
@@ -420,6 +460,7 @@ def write_excel(
     classification_review: List[DriveInventoryItem],
     sensitivity_review: List[DriveInventoryItem],
     migration_rows: List[Dict[str, str]],
+    coverage_rows: List[Dict[str, str]],
 ) -> None:
     wb = Workbook()
     summary = wb.active
@@ -438,6 +479,7 @@ def write_excel(
             {"Metric": "Errors", "Value": len(result.errors)},
         ],
     )
+    add_sheet(wb, "All Objects", INVENTORY_COLUMNS, [item.to_row() for item in result.items])
     add_sheet(wb, "Inventory", INVENTORY_COLUMNS, [item.to_row() for item in items])
     add_sheet(wb, "Folders", FOLDER_COLUMNS, folders)
     add_sheet(wb, "Skipped Google Sheets", INVENTORY_COLUMNS, [item.to_row() for item in result.skipped_google_sheets])
@@ -450,6 +492,7 @@ def write_excel(
     add_sheet(wb, "Content Inspection", CONTENT_INSPECTION_COLUMNS, content_inspection_rows(result.items))
     add_sheet(wb, "Rule Matches", CONTENT_RULE_MATCH_COLUMNS, content_rule_match_rows(result.items))
     add_sheet(wb, "Content Sensitivity", CONTENT_SENSITIVITY_COLUMNS, content_sensitivity_rows(result.items))
+    add_sheet(wb, "Access Coverage", ACCESS_COVERAGE_COLUMNS, coverage_rows)
     add_sheet(wb, "Errors", ERROR_COLUMNS, result.errors)
     wb.save(path)
 

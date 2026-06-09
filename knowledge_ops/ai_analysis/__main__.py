@@ -23,6 +23,7 @@ def main() -> int:
     parser.add_argument("--dry-run", default="true")
     parser.add_argument("--scenario", default="")
     parser.add_argument("--max-total-cost-usd", type=float, default=None)
+    parser.add_argument("--allow-empty-inventory", default="false")
     args = parser.parse_args()
 
     if str(args.dry_run).lower() != "true":
@@ -43,7 +44,12 @@ def main() -> int:
         }
         print(json.dumps(summary, ensure_ascii=False, indent=2))
         return 0
+    inventory_path = Path(args.inventory)
+    if not inventory_path.exists() and str(args.allow_empty_inventory).lower() != "true":
+        raise RuntimeError(f"Inventory file not found: {inventory_path}")
     records = load_inventory(args.inventory, args.content_inspection)
+    if not records and str(args.allow_empty_inventory).lower() != "true":
+        raise RuntimeError(f"Inventory is empty: {inventory_path}")
     result = estimate(records, pricing, args.routing_config, config)
     write_outputs(result, args.out_dir)
     write_run_log(Path(args.out_dir) / "run_log.jsonl", {"event": "estimate_complete", "records": len(records)})

@@ -15,13 +15,6 @@ on:
         description: "Budget guard max total cost"
         required: true
         default: "100"
-      generate_sample_plan:
-        description: "Generate sample plan"
-        required: true
-        default: "true"
-        type: choice
-        options: ["true", "false"]
-
 permissions:
   contents: read
 

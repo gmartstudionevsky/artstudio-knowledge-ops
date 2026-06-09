@@ -60,6 +60,10 @@ class DriveInventoryScanner:
             raw_files.append(file_obj)
             self._log(run_log_path, {"event": "listed", "file_id": file_obj.get("id"), "name": file_obj.get("name")})
 
+        if getattr(self.client, "incomplete_search_detected", False):
+            result.limitations.append(
+                "Google Drive API returned incompleteSearch=true for at least one page; rerun with a narrower root or drive scope before treating the inventory as complete."
+            )
         path_map = build_paths(raw_files)
         content_inspection_attempts = 0
         for file_obj in raw_files:
@@ -98,6 +102,11 @@ class DriveInventoryScanner:
 
         if mode in {"duplicates", "full"}:
             mark_duplicates(result.items)
+        unmapped_parent_count = sum(1 for item in result.items if item.full_path.startswith("/Unmapped parent "))
+        if unmapped_parent_count:
+            result.limitations.append(
+                f"{unmapped_parent_count} object(s) have parents outside the current listing; paths are partial."
+            )
         if self.config.include_perceptual_image_hash:
             result.limitations.append("Perceptual image hash is reserved for a future lightweight implementation.")
         return result

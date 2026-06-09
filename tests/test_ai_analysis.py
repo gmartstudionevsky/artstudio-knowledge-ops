@@ -46,6 +46,14 @@ class AIAnalysisTest(unittest.TestCase):
         )
         self.assertEqual(estimate_obj.status, "OVER_BUDGET")
 
+    def test_budget_guard_applies_unit_limits(self):
+        estimate_obj = apply_budget_guard(
+            ScenarioEstimate("deep", total_cost_usd=10, status="OK", service_units={"document_ai": 20}),
+            BudgetLimits(max_total_cost_usd=100, max_pages_for_document_ai=10),
+        )
+        self.assertEqual(estimate_obj.status, "OVER_BUDGET")
+        self.assertIn("document_ai units", estimate_obj.reasons[0])
+
     def test_sample_plan_reproducible(self):
         records = [classify_eligibility(AIFileRecord(str(i), f"{i}.png", f"/{i}.png", "image/png", "png")) for i in range(10)]
         first = [record.file_id for record in sample_plan(records, 4, 7)]

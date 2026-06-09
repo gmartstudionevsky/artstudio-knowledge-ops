@@ -33,6 +33,18 @@ on:
         description: "Maximum file download size for content inspection"
         required: true
         default: "25"
+      metadata_only_registry:
+        description: "Only build a complete metadata registry for all visible files and folders"
+        required: true
+        default: "false"
+        type: choice
+        options: ["true", "false"]
+      enable_ocr:
+        description: "Attempt local OCR for images and scanned PDFs during content inspection"
+        required: true
+        default: "false"
+        type: choice
+        options: ["true", "false"]
       generate_ai_estimate:
         description: "Run estimate-only AI readiness after final inventory"
         required: true
@@ -73,13 +85,17 @@ jobs:
       - name: Run metadata-only inventory
         run: |
           set -euo pipefail
+          MAX_FILES="${{ github.event.inputs.max_files }}"
+          if [ "${{ github.event.inputs.metadata_only_registry }}" = "true" ]; then
+            MAX_FILES="0"
+          fi
           python -m knowledge_ops.drive_inventory \
             --scope "${{ github.event.inputs.scope }}" \
             --root-folder-id "${{ github.event.inputs.root_folder_id }}" \
             --config "$INVENTORY_CONFIG" \
             --out-dir out/drive_inventory/01_metadata \
             --mode inventory \
-            --max-files "${{ github.event.inputs.max_files }}" \
+            --max-files "$MAX_FILES" \
             --skip-google-sheets true \
             --dry-run true \
             --safe-mode true \
@@ -92,6 +108,7 @@ jobs:
 
   content-classification:
     name: "02 content classification"
+    if: ${{ github.event.inputs.metadata_only_registry != 'true' }}
     needs: metadata-map
     runs-on: ubuntu-latest
     steps:
@@ -100,6 +117,11 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -r requirements.txt
+      - name: Install OCR runtime
+        if: ${{ github.event.inputs.enable_ocr == 'true' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tesseract-ocr tesseract-ocr-rus tesseract-ocr-eng
       - name: Run bounded content inspection
         run: |
           set -euo pipefail
@@ -118,7 +140,7 @@ jobs:
             --content-char-limit "${{ github.event.inputs.content_char_limit }}" \
             --content-page-limit "${{ github.event.inputs.content_page_limit }}" \
             --max-download-size-mb "${{ github.event.inputs.max_download_size_mb }}" \
-            --enable-ocr false \
+            --enable-ocr "${{ github.event.inputs.enable_ocr }}" \
             --enable-excel-content-inspection true \
             --store-content-preview false \
             --store-sensitive-snippets false
@@ -130,6 +152,7 @@ jobs:
 
   final-inventory:
     name: "03 final inventory reports"
+    if: ${{ github.event.inputs.metadata_only_registry != 'true' }}
     needs: content-classification
     runs-on: ubuntu-latest
     steps:
@@ -138,6 +161,11 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -r requirements.txt
+      - name: Install OCR runtime
+        if: ${{ github.event.inputs.enable_ocr == 'true' }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tesseract-ocr tesseract-ocr-rus tesseract-ocr-eng
       - name: Run final inventory with duplicate reports
         run: |
           set -euo pipefail
@@ -156,7 +184,7 @@ jobs:
             --content-char-limit "${{ github.event.inputs.content_char_limit }}" \
             --content-page-limit "${{ github.event.inputs.content_page_limit }}" \
             --max-download-size-mb "${{ github.event.inputs.max_download_size_mb }}" \
-            --enable-ocr false \
+            --enable-ocr "${{ github.event.inputs.enable_ocr }}" \
             --enable-excel-content-inspection true \
             --store-content-preview false \
             --store-sensitive-snippets false
@@ -168,7 +196,7 @@ jobs:
 
   ai-readiness-estimate:
     name: "04 AI readiness estimate"
-    if: ${{ github.event.inputs.generate_ai_estimate == 'true' }}
+    if: ${{ github.event.inputs.metadata_only_registry != 'true' && github.event.inputs.generate_ai_estimate == 'true' }}
     needs: final-inventory
     runs-on: ubuntu-latest
     steps:

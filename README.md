@@ -50,6 +50,8 @@ Workflow `Drive Inventory Pipeline` выполняет этапы:
 - `content_char_limit`
 - `content_page_limit`
 - `max_download_size_mb`
+- `metadata_only_registry`
+- `enable_ocr`
 - `generate_ai_estimate`
 
 Для запуска из GitHub Actions нужен repository secret `GOOGLE_SERVICE_ACCOUNT_JSON`.
@@ -70,6 +72,16 @@ python -m knowledge_ops.drive_inventory \
   --store-content-preview false \
   --store-sensitive-snippets false
 ```
+
+## GitHub Actions: полный прогон
+
+1. Откройте GitHub repository -> `Actions` -> `Drive Inventory Pipeline`.
+2. Нажмите `Run workflow`.
+3. Для первого безопасного полного реестра выберите `metadata_only_registry=true`. Workflow пройдёт по всем доступным service account объектам, принудительно использует `max_files=0`, не скачивает содержимое и отдаст artifact `drive-inventory-01-metadata`.
+4. Для полноценной предварительной классификации выберите `metadata_only_registry=false`, `max_files=0`, `content_inspection_max_files=0`, `enable_ocr=true`, `generate_ai_estimate=true`. Этот режим скачивает поддерживаемые файлы в пределах лимитов, пытается извлечь текст из документов/PDF и, где возможно, делает локальный OCR изображений и сканов.
+5. После завершения скачайте artifacts. Основные файлы для разбора: `all_objects.csv`, `inventory.csv`, `content_inspection.csv`, `classification_review.csv`, `sensitivity_review.csv`, `access_coverage.csv`, `inventory.xlsx`, `audit_report.md`.
+
+`all_objects.csv` — полный реестр всего увиденного, включая Google Sheets как metadata-only объекты. `inventory.csv` — рабочий реестр файлов для классификации, без содержимого Google Sheets.
 
 ## Локальный запуск AI estimate
 

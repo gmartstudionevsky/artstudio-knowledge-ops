@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 from knowledge_ops.drive_inventory.config import InventoryConfig
 from knowledge_ops.drive_inventory.content_inspector import (
@@ -88,6 +89,15 @@ class ContentInspectionTest(unittest.TestCase):
         result = inspector.inspect(item, {"id": "1", "name": "video.mp4", "mimeType": "video/mp4", "size": "6"})
         self.assertEqual(result.status, "unsupported_type")
         self.assertEqual(client.download_calls, 0)
+
+    def test_ocr_enabled_reports_unavailable_without_failing(self):
+        client = FakeDriveClient(b"not really an image")
+        inspector = ContentInspector(client, InventoryConfig(enable_ocr=True), ContentRuleEngine([]))
+        item = DriveInventoryItem("1", "scan.png", "scan", "image/png", "file", "png")
+        with patch("knowledge_ops.drive_inventory.content_inspector.shutil.which", return_value=None):
+            result = inspector.inspect(item, {"id": "1", "name": "scan.png", "mimeType": "image/png", "size": "19"})
+        self.assertEqual(result.status, "ocr_unavailable")
+        self.assertEqual(client.download_calls, 1)
 
 
 if __name__ == "__main__":

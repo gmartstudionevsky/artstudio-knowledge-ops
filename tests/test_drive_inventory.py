@@ -1,16 +1,20 @@
 from __future__ import annotations
 
 import unittest
+import tempfile
+from pathlib import Path
 
 from knowledge_ops.drive_inventory.classifier import classify_item
 from knowledge_ops.drive_inventory.duplicate_detector import mark_exact_duplicates, mark_version_candidates
 from knowledge_ops.drive_inventory.models import SHEETS_MIME, DriveInventoryItem
 from knowledge_ops.drive_inventory.normalizer import normalize_name, split_extension, strip_version_markers
 from knowledge_ops.drive_inventory.report_writer import build_migration_plan
+from knowledge_ops.drive_inventory.report_writer import write_reports
 from knowledge_ops.drive_inventory.safety import ReadOnlySafetyError, assert_read_only_operation, assert_safe_recommendation
 from knowledge_ops.drive_inventory.config import InventoryConfig, load_inventory_config
 from knowledge_ops.drive_inventory.__main__ import DEFAULT_CONFIG_PATH
 from knowledge_ops.drive_inventory.scanner import DriveInventoryScanner
+from knowledge_ops.drive_inventory.scanner import InventoryResult
 
 
 class DriveInventoryNormalizerTest(unittest.TestCase):
@@ -104,6 +108,19 @@ class DriveInventoryMigrationPlanTest(unittest.TestCase):
         rows = build_migration_plan([item])
         self.assertEqual(rows[0]["execution_status"], "not_planned")
         self.assertIn("SOP", rows[0]["future_target_area"])
+
+    def test_reports_include_all_objects_and_access_coverage(self):
+        file_item = DriveInventoryItem("1", "SOP.pdf", "sop", "application/pdf", "file", "pdf")
+        sheet_item = DriveInventoryItem.from_drive_file(
+            {"id": "2", "name": "Finance", "mimeType": SHEETS_MIME},
+            normalized_name="finance",
+            extension="",
+        )
+        result = InventoryResult(items=[file_item, sheet_item], skipped_google_sheets=[sheet_item])
+        with tempfile.TemporaryDirectory() as tmp:
+            write_reports(result, Path(tmp))
+            self.assertTrue((Path(tmp) / "all_objects.csv").exists())
+            self.assertTrue((Path(tmp) / "access_coverage.csv").exists())
 
 
 class FakeInventoryClient:

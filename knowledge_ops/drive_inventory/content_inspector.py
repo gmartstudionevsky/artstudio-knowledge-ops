@@ -5,6 +5,7 @@ import hashlib
 import html
 import io
 import re
+import shutil
 import warnings
 import zipfile
 from dataclasses import dataclass, field
@@ -156,8 +157,11 @@ class ContentInspector:
             return self.client.export_text(file_obj, max_bytes), "extracted_google_export_text"
         if mime_type.startswith("application/vnd.google-apps."):
             return "", "unsupported_google_native"
-        if mime_type.startswith("image/"):
-            return ("", "ocr_disabled" if not self.config.enable_ocr else "ocr_not_implemented")
+        if mime_type.startswith("image/") or ext in IMAGE_EXTENSIONS:
+            if not self.config.enable_ocr:
+                return "", "ocr_disabled"
+            data = self.client.download_bytes(file_obj, max_bytes)
+            return extract_image_ocr(data)
         if ext in ARCHIVE_EXTENSIONS:
             return "", "archive_metadata_only"
         if ext in LEGACY_BINARY_EXTENSIONS:
@@ -176,7 +180,12 @@ class ContentInspector:
                 return "", "excel_content_inspection_disabled"
             return extract_xlsx(data, self.config.content_char_limit), "extracted_xlsx"
         if ext == "pdf" or mime_type == "application/pdf":
-            return extract_pdf_text(data, self.config.content_page_limit), "extracted_pdf_text"
+            text = extract_pdf_text(data, self.config.content_page_limit)
+            if text:
+                return text, "extracted_pdf_text"
+            if self.config.enable_ocr:
+                return extract_pdf_ocr(data, self.config.content_page_limit)
+            return "", "pdf_no_text_layer"
         return "", "unsupported_type"
 
 
@@ -319,6 +328,50 @@ def extract_pdf_text(data: bytes, page_limit: int) -> str:
         return compact_text(" ".join(chunks[:2000]))
 
 
+def extract_image_ocr(data: bytes) -> Tuple[str, str]:
+    if not shutil.which("tesseract"):
+        return "", "ocr_unavailable"
+    try:
+        from PIL import Image  # type: ignore
+        import pytesseract  # type: ignore
+    except Exception:
+        return "", "ocr_unavailable"
+    try:
+        image = Image.open(io.BytesIO(data))
+        text = pytesseract.image_to_string(image, lang="rus+eng")
+        text = compact_text(text)
+        return (text, "extracted_image_ocr") if text else ("", "ocr_no_text")
+    except Exception:
+        return "", "ocr_failed"
+
+
+def extract_pdf_ocr(data: bytes, page_limit: int) -> Tuple[str, str]:
+    if not shutil.which("tesseract"):
+        return "", "ocr_unavailable"
+    try:
+        import fitz  # type: ignore
+        from PIL import Image  # type: ignore
+        import pytesseract  # type: ignore
+    except Exception:
+        return "", "ocr_unavailable"
+    chunks = []
+    try:
+        document = fitz.open(stream=data, filetype="pdf")
+        try:
+            for page in document[:page_limit]:
+                pixmap = page.get_pixmap(matrix=fitz.Matrix(2, 2), alpha=False)
+                image = Image.open(io.BytesIO(pixmap.tobytes("png")))
+                text = pytesseract.image_to_string(image, lang="rus+eng")
+                if text:
+                    chunks.append(text)
+        finally:
+            document.close()
+    except Exception:
+        return "", "ocr_failed"
+    text = compact_text(" ".join(chunks))
+    return (text, "extracted_pdf_ocr") if text else ("", "ocr_no_text")
+
+
 def xml_text(data: bytes) -> str:
     try:
         root = ElementTree.fromstring(data)
@@ -363,5 +416,6 @@ def append_reason(existing: str, addition: str) -> str:
 PLAIN_TEXT_EXTENSIONS = {"txt", "csv", "html", "htm", "rtf"}
 ZIP_TEXT_EXTENSIONS = {"docx", "pptx", "xlsx"}
 PDF_EXTENSIONS = {"pdf"}
+IMAGE_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "tif", "tiff", "bmp", "gif"}
 ARCHIVE_EXTENSIONS = {"zip", "rar", "7z", "tar", "gz"}
 LEGACY_BINARY_EXTENSIONS = {"doc", "ppt", "xls"}

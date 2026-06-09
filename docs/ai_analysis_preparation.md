@@ -41,6 +41,8 @@ python -m knowledge_ops.ai_analysis \
   --dry-run true
 ```
 
+Estimator намеренно падает, если `--inventory` отсутствует или пустой. Это защищает от успешных пустых отчетов в GitHub Actions. Для технической проверки пустого контура можно явно добавить `--allow-empty-inventory true`.
+
 Проверка конфигов:
 
 ```bash
@@ -77,7 +79,8 @@ python -m knowledge_ops.ai_analysis \
 - Google Sheets всегда пропускаются.
 - Точные дубли, которые не являются каноническими кандидатами, исключаются.
 - HR/legal/owner/financial файлы требуют ручного approval.
-- Budget guards помечают сценарии как `OVER_BUDGET`, а не запускают анализ.
+- Budget guards помечают сценарии как `OVER_BUDGET` или `APPROVAL_REQUIRED`, а не запускают анализ.
+- Проверяются не только деньги, но и лимиты объёма: изображения/страницы для Vision, страницы Document AI, минуты видео и аудио.
 - Операции записи в Drive не реализованы.
 - OCR-тексты, transcripts, thumbnails, keyframes и скачанные файлы не коммитятся.
 
