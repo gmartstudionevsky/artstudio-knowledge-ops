@@ -79,10 +79,6 @@ def load_inventory_config(path: str | Path | None) -> InventoryConfig:
     if not path:
         return InventoryConfig()
     config_path = Path(path)
-    if not config_path.exists() and str(config_path).replace("\\", "/") == "configs/drive_inventory.yml":
-        fallback = Path("config/drive-inventory.yml")
-        if fallback.exists():
-            config_path = fallback
     if not config_path.exists():
         return InventoryConfig()
     with config_path.open("r", encoding="utf-8") as fh:

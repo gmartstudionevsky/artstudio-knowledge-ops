@@ -11,6 +11,34 @@
 3. Сформировать полный управленческий пакет отчетов.
 4. Оценить, где в будущем может понадобиться Cloud AI и сколько это будет стоить.
 
+## Где это находится в GitHub
+
+- Раздел: `Actions`.
+- Название workflow в UI: `Drive Inventory Pipeline`.
+- Файл в репозитории: `.github/workflows/drive-inventory.yml`.
+- Основной конфиг: `configs/drive_inventory.yml`.
+- Ручной запуск: кнопка `Run workflow`.
+
+Если workflow не виден в `Actions`, сначала проверьте, что открыта ветка `main` после merge PR с этим файлом. GitHub показывает workflow из default branch.
+
+Параметры ручного запуска:
+
+| Параметр | Назначение | Рекомендуемый первый запуск |
+| --- | --- | --- |
+| `scope` | Область сканирования Drive | `all-accessible-drive` |
+| `root_folder_id` | ID корневой папки для `root`/`folder` | пусто |
+| `max_files` | Максимум объектов на каждом этапе; `0` = без лимита | `100` |
+| `content_inspection_max_files` | Максимум файлов для чтения содержимого | `25` |
+| `content_char_limit` | Лимит извлеченного текста на файл | `20000` |
+| `content_page_limit` | Лимит страниц PDF/слайдов | `20` |
+| `max_download_size_mb` | Лимит размера скачивания для content inspection | `25` |
+| `generate_ai_estimate` | Считать оценку будущего Cloud AI-анализа | `true` |
+
+Secrets:
+
+- `GOOGLE_SERVICE_ACCOUNT_JSON` — обязателен для GitHub Actions.
+- `GOOGLE_DELEGATED_USER` — опционален.
+
 ## Этап 01 — metadata map
 
 Цель: быстро понять состав Drive без скачивания содержимого.

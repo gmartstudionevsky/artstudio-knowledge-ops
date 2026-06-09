@@ -13,11 +13,14 @@ from knowledge_ops.drive_inventory.report_writer import write_reports
 from knowledge_ops.drive_inventory.scanner import DriveInventoryScanner
 
 
+DEFAULT_CONFIG_PATH = "configs/drive_inventory.yml"
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Read-only ARTSTUDIO Google Drive inventory")
     parser.add_argument("--scope", default="all-accessible-drive", choices=["all-accessible-drive", "root", "folder"])
     parser.add_argument("--root-folder-id", default="")
-    parser.add_argument("--config", default="config/drive-inventory.yml")
+    parser.add_argument("--config", default=DEFAULT_CONFIG_PATH)
     parser.add_argument("--out-dir", default="out/drive_inventory")
     parser.add_argument("--mode", default="full", choices=["inventory", "duplicates", "classify", "full"])
     parser.add_argument("--cache", default="")

@@ -8,7 +8,8 @@ from knowledge_ops.drive_inventory.models import SHEETS_MIME, DriveInventoryItem
 from knowledge_ops.drive_inventory.normalizer import normalize_name, split_extension, strip_version_markers
 from knowledge_ops.drive_inventory.report_writer import build_migration_plan
 from knowledge_ops.drive_inventory.safety import ReadOnlySafetyError, assert_read_only_operation, assert_safe_recommendation
-from knowledge_ops.drive_inventory.config import InventoryConfig
+from knowledge_ops.drive_inventory.config import InventoryConfig, load_inventory_config
+from knowledge_ops.drive_inventory.__main__ import DEFAULT_CONFIG_PATH
 from knowledge_ops.drive_inventory.scanner import DriveInventoryScanner
 
 
@@ -43,6 +44,14 @@ class DriveInventoryPolicyTest(unittest.TestCase):
     def test_delete_recommendation_is_forbidden(self):
         with self.assertRaises(ReadOnlySafetyError):
             assert_safe_recommendation("DELETE")
+
+    def test_default_config_path_matches_documented_config(self):
+        config = load_inventory_config("configs/drive_inventory.yml")
+        self.assertTrue(config.skip_google_sheets)
+        self.assertEqual(config.content_rules_config, "configs/drive_content_rules.yml")
+
+    def test_cli_default_config_path_is_documented_path(self):
+        self.assertEqual(DEFAULT_CONFIG_PATH, "configs/drive_inventory.yml")
 
 
 class DriveInventoryClassifierTest(unittest.TestCase):
