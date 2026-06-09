@@ -1,0 +1,49 @@
+name: Classification Engine Diagnostics
+
+on:
+  workflow_dispatch:
+    inputs:
+      validate_rules:
+        description: "Run classification rule validation"
+        required: true
+        default: "true"
+        type: choice
+        options: ["true", "false"]
+      classification_engine_smoke_test:
+        description: "Run unit smoke tests for indexed/full-scan equivalence"
+        required: true
+        default: "true"
+        type: choice
+        options: ["true", "false"]
+      benchmark_sample_size:
+        description: "Reserved sample size label for future metadata benchmark artifacts"
+        required: true
+        default: "0"
+
+permissions:
+  contents: read
+
+jobs:
+  diagnostics:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: Validate rules
+        if: ${{ github.event.inputs.validate_rules == 'true' }}
+        run: |
+          python -m knowledge_ops.drive_inventory validate-rules \
+            --config configs/drive_inventory.yml \
+            --out-dir out/classification_engine_diagnostics
+      - name: Run classification smoke tests
+        if: ${{ github.event.inputs.classification_engine_smoke_test == 'true' }}
+        run: python -m unittest tests.test_drive_inventory
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: classification-engine-diagnostics
+          path: out/classification_engine_diagnostics
+          if-no-files-found: ignore

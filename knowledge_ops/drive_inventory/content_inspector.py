@@ -10,7 +10,7 @@ import warnings
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Any, Dict, Iterable, List, Pattern, Tuple
 from xml.etree import ElementTree
 
 import yaml
@@ -32,6 +32,10 @@ class ContentRule:
     target_fields: Dict[str, str] = field(default_factory=dict)
     sensitivity_flags: Tuple[str, ...] = ()
     explanation: str = ""
+    normalized_keywords: Tuple[str, ...] = ()
+    compiled_regex_patterns: Tuple[Pattern[str], ...] = ()
+    compiled_negative_patterns: Tuple[Pattern[str], ...] = ()
+    regex_errors: Tuple[str, ...] = ()
 
 
 @dataclass
@@ -61,7 +65,7 @@ class ContentInspectionResult:
 
 class ContentRuleEngine:
     def __init__(self, rules: Iterable[ContentRule]):
-        self.rules = list(rules)
+        self.rules = [ensure_compiled_rule(rule) for rule in rules]
 
     @classmethod
     def from_file(cls, path: str | Path) -> "ContentRuleEngine":
@@ -72,17 +76,24 @@ class ContentRuleEngine:
             data = yaml.safe_load(fh) or {}
         rules = []
         for item in data.get("rules", []):
+            compiled_regex, regex_errors = compile_content_patterns(item.get("regex_patterns", []), item.get("rule_id", ""))
+            compiled_negative, negative_errors = compile_content_patterns(item.get("negative_patterns", []), item.get("rule_id", ""))
+            keywords = tuple(item.get("keywords", []))
             rules.append(
                 ContentRule(
                     rule_id=item["rule_id"],
                     category=item.get("category", "uncategorized"),
                     regex_patterns=tuple(item.get("regex_patterns", [])),
-                    keywords=tuple(item.get("keywords", [])),
+                    keywords=keywords,
                     negative_patterns=tuple(item.get("negative_patterns", [])),
                     weight=int(item.get("weight", 1)),
                     target_fields=item.get("target_fields", {}) or {},
                     sensitivity_flags=tuple(item.get("sensitivity_flags", [])),
                     explanation=item.get("explanation", ""),
+                    normalized_keywords=tuple(normalize_name(keyword) for keyword in keywords),
+                    compiled_regex_patterns=tuple(compiled_regex),
+                    compiled_negative_patterns=tuple(compiled_negative),
+                    regex_errors=tuple(regex_errors + negative_errors),
                 )
             )
         return cls(rules)
@@ -91,12 +102,12 @@ class ContentRuleEngine:
         normalized = normalize_name(text)
         matches: List[RuleMatch] = []
         for rule in self.rules:
-            if any(re.search(pattern, normalized, flags=re.IGNORECASE | re.MULTILINE) for pattern in rule.negative_patterns):
+            if any(pattern.search(normalized) for pattern in rule.compiled_negative_patterns):
                 continue
-            keyword_count = sum(1 for keyword in rule.keywords if normalize_name(keyword) in normalized)
+            keyword_count = sum(1 for keyword in rule.normalized_keywords if keyword in normalized)
             regex_count = 0
-            for pattern in rule.regex_patterns:
-                regex_count += len(re.findall(pattern, text, flags=re.IGNORECASE | re.MULTILINE))
+            for pattern in rule.compiled_regex_patterns:
+                regex_count += len(pattern.findall(text))
             if keyword_count or regex_count:
                 matched_by = "keyword+regex" if keyword_count and regex_count else "regex" if regex_count else "keyword"
                 matches.append(
@@ -112,6 +123,39 @@ class ContentRuleEngine:
                     )
                 )
         return matches
+
+
+def compile_content_patterns(patterns: Iterable[str], rule_id: str) -> Tuple[List[Pattern[str]], List[str]]:
+    compiled = []
+    errors = []
+    for pattern in patterns:
+        try:
+            compiled.append(re.compile(pattern, flags=re.IGNORECASE | re.MULTILINE))
+        except re.error as exc:
+            errors.append(f"{rule_id}:{pattern}:{exc}")
+    return compiled, errors
+
+
+def ensure_compiled_rule(rule: ContentRule) -> ContentRule:
+    if rule.normalized_keywords or rule.compiled_regex_patterns or rule.compiled_negative_patterns or rule.regex_errors:
+        return rule
+    compiled_regex, regex_errors = compile_content_patterns(rule.regex_patterns, rule.rule_id)
+    compiled_negative, negative_errors = compile_content_patterns(rule.negative_patterns, rule.rule_id)
+    return ContentRule(
+        rule_id=rule.rule_id,
+        category=rule.category,
+        regex_patterns=rule.regex_patterns,
+        keywords=rule.keywords,
+        negative_patterns=rule.negative_patterns,
+        weight=rule.weight,
+        target_fields=rule.target_fields,
+        sensitivity_flags=rule.sensitivity_flags,
+        explanation=rule.explanation,
+        normalized_keywords=tuple(normalize_name(keyword) for keyword in rule.keywords),
+        compiled_regex_patterns=tuple(compiled_regex),
+        compiled_negative_patterns=tuple(compiled_negative),
+        regex_errors=tuple(regex_errors + negative_errors),
+    )
 
 
 class ContentInspector:

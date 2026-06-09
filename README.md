@@ -100,6 +100,20 @@ python -m knowledge_ops.ai_analysis \
   --dry-run true
 ```
 
+## Classification Engine Diagnostics / Rule Validation
+
+Для проверки правил без Drive-аудита:
+
+```bash
+python -m knowledge_ops.drive_inventory validate-rules \
+  --config configs/drive_inventory.yml \
+  --out-dir out/classification_engine_diagnostics
+```
+
+После inventory-прогона смотрите `classification_performance.json`, `classification_performance.md`, `rule_performance.csv`, `zero_hit_rules.csv`, `slow_rules.csv`, `suspicious_rules.csv` и `classification_quality_summary.csv`.
+
+Отдельный GitHub Actions workflow: `Classification Engine Diagnostics`. Он запускается вручную, не требует Google Drive secrets и не делает Cloud AI calls.
+
 ## Credentials
 
 Для реального Drive-листинга нужен один из вариантов:
@@ -118,5 +132,6 @@ Service account должен иметь доступ на чтение к тем
 ## Документация
 
 - [docs/drive_inventory.md](docs/drive_inventory.md) — инвентаризация и отчеты.
+- [docs/classification_engine.md](docs/classification_engine.md) — diagnostics, indexed/full-scan режимы и validation правил.
 - [docs/inventory_workflow.md](docs/inventory_workflow.md) — этапы workflow и рекомендуемый темп прогонов.
 - [docs/ai_analysis_preparation.md](docs/ai_analysis_preparation.md) — подготовка Cloud AI-анализа и estimate.

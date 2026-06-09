@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import json
 from collections import Counter
 from pathlib import Path
 from typing import Dict, Iterable, List
@@ -18,6 +19,24 @@ ERROR_COLUMNS = ["file_id", "name", "error"]
 ACCESS_COVERAGE_COLUMNS = ["metric", "value", "notes"]
 SUMMARY_COLUMNS = ["dimension", "value", "count"]
 RULE_SUMMARY_COLUMNS = ["source", "rule_id", "count"]
+RULE_PERFORMANCE_COLUMNS = [
+    "source",
+    "category",
+    "rule_id",
+    "match_count",
+    "files_affected_count",
+    "average_time_ms",
+    "total_time_ms",
+    "regex_match_count",
+    "token_match_count",
+    "confidence_contribution_total",
+    "example_paths",
+    "is_zero_hit",
+    "is_slow_candidate",
+    "is_high_value_rule",
+    "regex_errors",
+]
+QUALITY_SUMMARY_COLUMNS = ["metric", "value", "notes"]
 EXACT_DUPLICATE_GROUP_COLUMNS = ["duplicate_group_id", "canonical_candidate_id", "row_count", "total_size", "sample_paths"]
 CONTENT_INSPECTION_COLUMNS = [
     "file_id",
@@ -149,6 +168,18 @@ RU_HEADERS = {
     "value": "Значение",
     "count": "Количество",
     "source": "Источник правила",
+    "average_time_ms": "Среднее время, мс",
+    "total_time_ms": "Суммарное время, мс",
+    "match_count": "Количество срабатываний",
+    "files_affected_count": "Файлов затронуто",
+    "regex_match_count": "Regex-срабатывания",
+    "token_match_count": "Token-срабатывания",
+    "confidence_contribution_total": "Суммарный вклад confidence",
+    "example_paths": "Санитизированные примеры путей",
+    "is_zero_hit": "Zero-hit rule",
+    "is_slow_candidate": "Медленное правило",
+    "is_high_value_rule": "Высокоценное правило",
+    "regex_errors": "Ошибки regex",
     "row_count": "Количество строк",
     "total_size": "Суммарный размер",
     "sample_paths": "Примеры путей",
@@ -217,6 +248,14 @@ def write_reports(result: InventoryResult, out_dir: str | Path) -> None:
     exact_duplicate_groups = build_exact_duplicate_group_rows(items)
     media_summary = build_summary_rows("media_subtype", (item.media_subtype or item.image_subtype or item.video_subtype or item.audio_subtype or item.design_source_subtype for item in items if item.media_subtype or item.image_subtype or item.video_subtype or item.audio_subtype or item.design_source_subtype))
     unknown_after_v2 = [item for item in items if item.classification_status in {"UNKNOWN", "NEEDS_REVIEW"} or item.combined_confidence in {"unknown", "needs_review"}]
+    rule_performance_rows = result.rule_performance_rows
+    zero_hit_rules = [row for row in rule_performance_rows if row.get("is_zero_hit") == "true"]
+    slow_rules = [row for row in rule_performance_rows if row.get("is_slow_candidate") == "true"]
+    suspicious_rules = [
+        row for row in rule_performance_rows
+        if row.get("is_zero_hit") == "true" or row.get("is_slow_candidate") == "true" or row.get("regex_errors")
+    ]
+    quality_rows = build_classification_quality_rows(result.items, result.classification_diagnostics)
 
     write_csv(output / "all_objects.csv", INVENTORY_COLUMNS, (item.to_row() for item in result.items))
     write_localized_csv(output / "all_objects_ru.csv", INVENTORY_COLUMNS, (item.to_row() for item in result.items))
@@ -258,6 +297,17 @@ def write_reports(result: InventoryResult, out_dir: str | Path) -> None:
     write_csv(output / "exact_duplicate_groups.csv", EXACT_DUPLICATE_GROUP_COLUMNS, exact_duplicate_groups)
     write_csv(output / "media_classification_summary.csv", SUMMARY_COLUMNS, media_summary)
     write_csv(output / "unknown_after_v2.csv", INVENTORY_COLUMNS, (item.to_row() for item in unknown_after_v2))
+    write_csv(output / "rule_performance.csv", RULE_PERFORMANCE_COLUMNS, rule_performance_rows)
+    write_localized_csv(output / "rule_performance_ru.csv", RULE_PERFORMANCE_COLUMNS, rule_performance_rows)
+    write_csv(output / "zero_hit_rules.csv", RULE_PERFORMANCE_COLUMNS, zero_hit_rules)
+    write_localized_csv(output / "zero_hit_rules_ru.csv", RULE_PERFORMANCE_COLUMNS, zero_hit_rules)
+    write_csv(output / "slow_rules.csv", RULE_PERFORMANCE_COLUMNS, slow_rules)
+    write_localized_csv(output / "slow_rules_ru.csv", RULE_PERFORMANCE_COLUMNS, slow_rules)
+    write_csv(output / "suspicious_rules.csv", RULE_PERFORMANCE_COLUMNS, suspicious_rules)
+    write_localized_csv(output / "suspicious_rules_ru.csv", RULE_PERFORMANCE_COLUMNS, suspicious_rules)
+    write_csv(output / "classification_quality_summary.csv", QUALITY_SUMMARY_COLUMNS, quality_rows)
+    write_localized_csv(output / "classification_quality_summary_ru.csv", QUALITY_SUMMARY_COLUMNS, quality_rows)
+    write_performance_reports(output, result, rule_performance_rows, quality_rows)
     write_tree(output / "drive_structure_tree.md", folders)
     write_audit_report(output / "audit_report.md", result, folders, exact, version, semantic, sensitivity_review)
     write_excel(
@@ -282,6 +332,8 @@ def write_reports(result: InventoryResult, out_dir: str | Path) -> None:
         exact_duplicate_groups,
         media_summary,
         unknown_after_v2,
+        rule_performance_rows,
+        quality_rows,
     )
 
 
@@ -378,12 +430,16 @@ def build_rule_match_summary(items: List[DriveInventoryItem]) -> List[Dict[str, 
         "filename": Counter(),
         "extension": Counter(),
         "sensitivity": Counter(),
+        "media": Counter(),
+        "cleanup": Counter(),
     }
     field_map = {
         "path": "matched_path_rules",
         "filename": "matched_filename_rules",
         "extension": "matched_extension_rules",
         "sensitivity": "matched_sensitivity_rules",
+        "media": "matched_media_rules",
+        "cleanup": "matched_cleanup_rules",
     }
     for item in items:
         for source, field_name in field_map.items():
@@ -394,6 +450,54 @@ def build_rule_match_summary(items: List[DriveInventoryItem]) -> List[Dict[str, 
     for source, counter in counters.items():
         rows.extend({"source": source, "rule_id": rule_id, "count": str(count)} for rule_id, count in counter.most_common())
     return rows
+
+
+def build_classification_quality_rows(items: List[DriveInventoryItem], diagnostics: Dict[str, object]) -> List[Dict[str, str]]:
+    rows = []
+    quality = diagnostics.get("quality", {}) if diagnostics else {}
+    if isinstance(quality, dict):
+        for metric, value in sorted(quality.items()):
+            rows.append({"metric": metric, "value": str(value), "notes": "diagnostics"})
+    for name, counter in [
+        ("classification_status", Counter(item.classification_status for item in items)),
+        ("combined_confidence", Counter(item.combined_confidence for item in items)),
+        ("cleanup_category", Counter(item.cleanup_category for item in items)),
+        ("media_subtype", Counter(item.media_subtype for item in items if item.media_subtype)),
+    ]:
+        for value, count in counter.most_common():
+            rows.append({"metric": name, "value": str(count), "notes": value})
+    return rows
+
+
+def write_performance_reports(output: Path, result: InventoryResult, rule_rows: List[Dict[str, str]], quality_rows: List[Dict[str, str]]) -> None:
+    diagnostics = result.classification_diagnostics or {}
+    (output / "classification_performance.json").write_text(
+        json.dumps(diagnostics, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    lines = [
+        "# Classification Engine Performance",
+        "",
+        f"- Engine mode: {diagnostics.get('engine_mode', 'unknown')}",
+        f"- Total classification time ms: {diagnostics.get('total_classification_time_ms', 0)}",
+        f"- Avg classification time ms: {diagnostics.get('avg_classification_time_ms', 0)}",
+        f"- Items classified: {diagnostics.get('total_items_classified', 0)}",
+        f"- Rules loaded: {diagnostics.get('total_rules_loaded', 0)}",
+        f"- Avg indexed candidates: {diagnostics.get('indexed_candidate_rules_avg', 0)}",
+        f"- Content inspection time ms: {diagnostics.get('content_inspection_time_ms', 0)}",
+        f"- Duplicate detection time ms: {diagnostics.get('duplicate_detection_time_ms', 0)}",
+        f"- Zero-hit rules: {sum(1 for row in rule_rows if row.get('is_zero_hit') == 'true')}",
+        f"- Slow rules: {sum(1 for row in rule_rows if row.get('is_slow_candidate') == 'true')}",
+        "",
+        "## Quality",
+    ]
+    for row in quality_rows[:50]:
+        lines.append(f"- {row['metric']}: {row['value']} ({row['notes']})")
+    (output / "classification_performance.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    quality_lines = ["# Classification Quality Summary", ""]
+    for row in quality_rows:
+        quality_lines.append(f"- {row['metric']}: {row['value']} ({row['notes']})")
+    (output / "classification_quality_summary.md").write_text("\n".join(quality_lines) + "\n", encoding="utf-8")
 
 
 def build_exact_duplicate_group_rows(items: List[DriveInventoryItem]) -> List[Dict[str, str]]:
@@ -499,6 +603,7 @@ def write_audit_report(
     items = [item for item in result.items if not item.is_google_sheet_skipped]
     files = [item for item in items if item.object_kind == "file"]
     rule_summary = build_rule_match_summary(result.items)
+    diagnostics = result.classification_diagnostics or {}
     path_rule_counts = Counter({row["rule_id"]: int(row["count"]) for row in rule_summary if row["source"] == "path"})
     filename_rule_counts = Counter({row["rule_id"]: int(row["count"]) for row in rule_summary if row["source"] == "filename"})
     sensitivity_rule_counts = Counter({row["rule_id"]: int(row["count"]) for row in rule_summary if row["source"] == "sensitivity"})
@@ -557,6 +662,14 @@ def write_audit_report(
             f"- Тип определен только по содержимому: {sum(1 for item in files if item.content_based_document_type and item.content_based_document_type == item.document_type_suggestion)}",
             "",
             "## Taxonomy V2",
+            f"- Classification engine mode: {diagnostics.get('engine_mode', 'unknown')}",
+            f"- Total classification time ms: {diagnostics.get('total_classification_time_ms', 0)}",
+            f"- Avg classification time ms: {diagnostics.get('avg_classification_time_ms', 0)}",
+            f"- Avg indexed candidate rules: {diagnostics.get('indexed_candidate_rules_avg', 0)}",
+            f"- Total rule matches: {sum(int(row['count']) for row in rule_summary)}",
+            f"- Unknown rate: {round((sum(1 for item in files if item.classification_status in {'UNKNOWN', 'NEEDS_REVIEW'}) / max(1, len(files))) * 100, 2)}%",
+            f"- Needs review rate: {round((sum(1 for item in files if item.classification_status == 'NEEDS_REVIEW') / max(1, len(files))) * 100, 2)}%",
+            f"- Conflict rate: {round((sum(1 for item in files if item.conflict_flags) / max(1, len(files))) * 100, 2)}%",
             counter_section("Top path rules", path_rule_counts),
             counter_section("Top filename rules", filename_rule_counts),
             counter_section("Top sensitivity rules", sensitivity_rule_counts),
@@ -615,6 +728,8 @@ def write_excel(
     exact_duplicate_groups: List[Dict[str, str]],
     media_summary: List[Dict[str, str]],
     unknown_after_v2: List[DriveInventoryItem],
+    rule_performance_rows: List[Dict[str, str]],
+    quality_rows: List[Dict[str, str]],
 ) -> None:
     wb = Workbook()
     summary = wb.active
@@ -645,6 +760,8 @@ def write_excel(
     add_sheet(wb, "Media", SUMMARY_COLUMNS, media_summary)
     add_sheet(wb, "Unknown After V2", INVENTORY_COLUMNS, [item.to_row() for item in unknown_after_v2])
     add_sheet(wb, "Rule Matches", RULE_SUMMARY_COLUMNS, rule_summary)
+    add_sheet(wb, "Rule Performance", RULE_PERFORMANCE_COLUMNS, rule_performance_rows)
+    add_sheet(wb, "Quality Summary", QUALITY_SUMMARY_COLUMNS, quality_rows)
     add_sheet(wb, "Exact Duplicate Groups", EXACT_DUPLICATE_GROUP_COLUMNS, exact_duplicate_groups)
     add_sheet(wb, "Folders", FOLDER_COLUMNS, folders)
     add_sheet(wb, "Skipped Google Sheets", INVENTORY_COLUMNS, [item.to_row() for item in result.skipped_google_sheets])

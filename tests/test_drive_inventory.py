@@ -4,7 +4,7 @@ import unittest
 import tempfile
 from pathlib import Path
 
-from knowledge_ops.drive_inventory.classifier import classify_item
+from knowledge_ops.drive_inventory.classifier import MetadataClassifier, classify_item, validate_rule_configs
 from knowledge_ops.drive_inventory.duplicate_detector import mark_exact_duplicates, mark_version_candidates
 from knowledge_ops.drive_inventory.models import SHEETS_MIME, DriveInventoryItem
 from knowledge_ops.drive_inventory.normalizer import normalize_name, split_extension, strip_version_markers
@@ -134,6 +134,58 @@ class DriveInventoryClassifierTest(unittest.TestCase):
             item = self.assert_classifies("/Temp/Diagnostics", name, {"cleanup_category": "system_trash_candidate"})
             self.assertEqual(item.classification_status, "CLASSIFIED_SYSTEM_TRASH")
 
+    def test_indexed_engine_matches_full_scan_for_v2_examples(self):
+        indexed_config = InventoryConfig(classification_use_rule_index=True, classification_strict_full_scan=False)
+        full_config = InventoryConfig(classification_use_rule_index=False, classification_strict_full_scan=True)
+        indexed = MetadataClassifier(indexed_config)
+        full = MetadataClassifier(full_config)
+        samples = [
+            ("/Public - копия/Отдел по работе с собственниками/2Советская", "file.pdf"),
+            ("/Передача Заозерная/Договоры", "ДКП.pdf"),
+            ("/М103 (все доки с паблика)", "ДДУ.pdf"),
+            ("/Отдел маркетинга/Фото SMM", "photo.jpg"),
+            ("/Temp/Diagnostics", "Thumbs.db"),
+        ]
+        fields = [
+            "object_suggestion",
+            "department_suggestion",
+            "document_family_suggestion",
+            "document_type_suggestion",
+            "sensitivity_suggestion",
+            "cleanup_category",
+            "classification_status",
+        ]
+        for path, name in samples:
+            left = DriveInventoryItem("i", name, normalize_name(name), "application/pdf", "file", split_extension(name, "application/pdf")[1] or "pdf", full_path=path)
+            right = DriveInventoryItem("f", name, normalize_name(name), "application/pdf", "file", split_extension(name, "application/pdf")[1] or "pdf", full_path=path)
+            indexed.classify(left)
+            full.classify(right)
+            for field in fields:
+                self.assertEqual(getattr(left, field), getattr(right, field), f"{field} for {path}/{name}")
+
+    def test_invalid_regex_is_reported_by_rule_validation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            rule_path = Path(tmp) / "bad.yml"
+            rule_path.write_text(
+                "rules:\n"
+                "  - rule_id: bad_regex\n"
+                "    regex_patterns: ['([']\n"
+                "    target_fields: {document_type_suggestion: test}\n"
+                "    weight: 1\n",
+                encoding="utf-8",
+            )
+            config = InventoryConfig(
+                path_rules_config=str(rule_path),
+                filename_rules_config=str(rule_path),
+                extension_rules_config=str(rule_path),
+                sensitivity_rules_config=str(rule_path),
+                media_rules_config=str(rule_path),
+                cleanup_rules_config=str(rule_path),
+            )
+            report = validate_rule_configs(config)
+            self.assertTrue(report.errors)
+            self.assertTrue(any("invalid regex" in row["message"] for row in report.errors))
+
 
 class DriveInventoryDuplicateTest(unittest.TestCase):
     def test_exact_duplicates_by_md5_and_size(self):
@@ -180,6 +232,11 @@ class DriveInventoryMigrationPlanTest(unittest.TestCase):
             write_reports(result, Path(tmp))
             self.assertTrue((Path(tmp) / "all_objects.csv").exists())
             self.assertTrue((Path(tmp) / "access_coverage.csv").exists())
+            self.assertTrue((Path(tmp) / "classification_performance.json").exists())
+            self.assertTrue((Path(tmp) / "rule_performance.csv").exists())
+            self.assertTrue((Path(tmp) / "zero_hit_rules.csv").exists())
+            self.assertTrue((Path(tmp) / "slow_rules.csv").exists())
+            self.assertTrue((Path(tmp) / "classification_quality_summary.csv").exists())
 
 
 class FakeInventoryClient:
