@@ -120,28 +120,28 @@ def write_csv(path: Path, columns: List[str], rows: Iterable[Dict[str, object]])
 def write_report(path: Path, records: List[AIFileRecord], scenarios: List[ScenarioEstimate]) -> None:
     service_counts = Counter(service for record in records for service in record.eligible_services)
     lines = [
-        "# AI analysis pricing report",
+        "# Отчет по подготовке AI-анализа и оценке стоимости",
         "",
-        f"- Files considered: {len(records)}",
-        f"- Vision eligible: {service_counts.get('vision', 0)}",
-        f"- Document AI eligible: {service_counts.get('document_ai', 0)}",
-        f"- Video Intelligence eligible: {service_counts.get('video_intelligence', 0)}",
-        f"- Speech-to-Text eligible: {service_counts.get('speech_to_text', 0)}",
-        f"- Google Sheets skipped: {sum(1 for record in records if record.eligibility_status == 'SKIPPED_GOOGLE_SHEET')}",
-        f"- Exact duplicates excluded: {sum(1 for record in records if record.eligibility_status == 'SKIPPED_DUPLICATE')}",
-        f"- Sensitive files requiring approval: {sum(1 for record in records if record.requires_manual_approval)}",
+        f"- Файлов рассмотрено: {len(records)}",
+        f"- Подходит для Vision: {service_counts.get('vision', 0)}",
+        f"- Подходит для Document AI: {service_counts.get('document_ai', 0)}",
+        f"- Подходит для Video Intelligence: {service_counts.get('video_intelligence', 0)}",
+        f"- Подходит для Speech-to-Text: {service_counts.get('speech_to_text', 0)}",
+        f"- Google Sheets пропущено: {sum(1 for record in records if record.eligibility_status == 'SKIPPED_GOOGLE_SHEET')}",
+        f"- Точных дублей исключено: {sum(1 for record in records if record.eligibility_status == 'SKIPPED_DUPLICATE')}",
+        f"- Чувствительных файлов с required approval: {sum(1 for record in records if record.requires_manual_approval)}",
         "",
-        "## Scenario cost estimate",
+        "## Оценка стоимости по сценариям",
     ]
     for scenario in scenarios:
         lines.append(f"- {scenario.scenario}: ${scenario.total_cost_usd:.2f} ({scenario.status})")
     lines.extend(
         [
             "",
-            "## Notes",
-            "- Estimate mode does not call Cloud AI APIs.",
-            "- Prices are estimates from config and must be checked against current Google Cloud Pricing before real use.",
-            "- Recommended next step: run a small sample-plan review, approve scope, then enable any future sample analysis explicitly.",
+            "## Примечания",
+            "- Estimate mode не вызывает Cloud AI APIs.",
+            "- Цены являются оценками из конфига; перед реальным запуском их нужно проверить по актуальному Google Cloud Pricing.",
+            "- Рекомендуемый следующий шаг: разобрать небольшой sample plan, утвердить scope и только затем явно включать будущий sample analysis.",
         ]
     )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -149,18 +149,18 @@ def write_report(path: Path, records: List[AIFileRecord], scenarios: List[Scenar
 
 def write_checklist(path: Path) -> None:
     path.write_text(
-        """# Cloud setup checklist
+        """# Чек-лист подготовки Google Cloud
 
-- Choose Google Cloud project and verify billing.
-- Enable Cloud Vision API, Document AI API, Video Intelligence API, Speech-to-Text API and Cloud Storage API if staging is needed.
-- Verify service account IAM with minimal roles only.
-- Store credentials in repository/environment secrets, never in git.
-- Configure `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, optional `GOOGLE_CLOUD_STAGING_BUCKET`.
-- Keep `AI_ANALYSIS_ALLOW_CLOUD_CALLS=false` until an approved sample run.
-- Create a temporary GCS bucket only if needed; set lifecycle cleanup policy.
-- Do not store full OCR text, transcripts, thumbnails or keyframes unless explicitly approved.
-- Configure budget alerts, audit logs and data retention.
-- Require manual approval before any deep run or sensitive upload.
+- Выбрать Google Cloud project и проверить billing.
+- Включить Cloud Vision API, Document AI API, Video Intelligence API, Speech-to-Text API и Cloud Storage API, если нужен staging.
+- Проверить IAM service account с минимальными ролями.
+- Хранить credentials только в repository/environment secrets, не в git.
+- Настроить `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, опционально `GOOGLE_CLOUD_STAGING_BUCKET`.
+- Держать `AI_ANALYSIS_ALLOW_CLOUD_CALLS=false` до утвержденного sample run.
+- Создать временный GCS bucket только при необходимости; настроить lifecycle cleanup policy.
+- Не хранить полный OCR text, transcripts, thumbnails или keyframes без явного approval.
+- Настроить budget alerts, audit logs и data retention.
+- Требовать ручной approval перед deep run или sensitive upload.
 """,
         encoding="utf-8",
     )

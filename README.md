@@ -1,78 +1,86 @@
 # ARTSTUDIO Knowledge Ops
 
-Technical automation repository for the ARTSTUDIO Base / Google Drive knowledge system.
+Репозиторий для read-only инвентаризации корпоративного Google Drive ARTSTUDIO / RBI PM.
 
-## Purpose
+Текущий этап проекта — собрать фактическую карту Drive: файлы, папки, Google Sheets как пропущенные объекты, дубли, первичную классификацию, чувствительные зоны, ограниченный анализ содержимого и оценку пригодности будущего Cloud AI-анализа.
 
-Google Drive remains the business knowledge base.
-GitHub is the automation source of truth and execution runtime for configs, workflows, runbooks, agent specs and Drive operations.
+Структурирование Drive, создание папок, переносы, переименования, карантин дублей и любые apply-операции намеренно убраны из репозитория. Новая целевая структура будет утверждаться позже на основании результатов инвентаризации.
 
-## Runtime
+## Принципы
 
-Primary execution is GitHub Actions + Google service account through `knowledge_ops.strict_drive_ops`.
+- Только read-only аудит.
+- Никаких изменений в Google Drive.
+- Native Google Sheets не читаются, не экспортируются и не хешируются.
+- Полный текст документов и чувствительные snippets не сохраняются по умолчанию.
+- Cloud AI API не вызываются в estimate mode.
+- Все результаты пишутся только в `out/`, который не попадает в git.
 
-Apps Script is legacy only. It may remain in the repository for historical reference, but it is no longer the primary automation path.
+## Основные компоненты
 
-## Core Principle
+- `knowledge_ops/drive_inventory` — инвентаризация Drive, классификация, дубли, content inspection, отчеты.
+- `knowledge_ops/ai_analysis` — estimate-only подготовка будущего Cloud AI-анализа и расчет примерной стоимости.
+- `configs/drive_inventory.yml` — параметры инвентаризации.
+- `configs/drive_content_rules.yml` — правила content inspection.
+- `configs/ai_analysis_pricing.yml` — оценочные цены Cloud AI.
+- `configs/ai_analysis_routing.yml` — сценарии, маршрутизация и budget guards.
+- `.github/workflows/drive-inventory.yml` — последовательный workflow инвентаризации.
+- `.github/workflows/ai-analysis-estimate.yml` — отдельный estimate-only workflow для AI readiness.
 
-Machine proposes, human approves where risk is meaningful, and GitHub-native automation executes safe actions. The approved safe-action set includes creating folders, moving files or folders into the agreed structure, renaming by explicit target name, archiving setup and methodology artifacts, and moving obvious duplicate/delete-candidate objects into a logged pending-trash quarantine. Permanent deletion is not allowed.
+## Последовательный workflow инвентаризации
 
-## Main Components
+Workflow `Drive Inventory Pipeline` выполняет этапы:
 
-- `knowledge_ops/strict_drive_ops.py` - strict GitHub-native Drive/Sheets execution CLI used by workflow.
-- `knowledge_ops/native_drive_ops.py` - base Drive/Sheets execution helpers.
-- `knowledge_ops/preparation_ops.py` - preparation-stage planning helpers.
-- `knowledge_ops/drive_inventory` - read-only first-stage Drive inventory, duplicate reports and review exports.
-- `knowledge_ops/ai_analysis` - estimate-only Google Cloud AI eligibility, pricing and sample-plan preparation.
-- `config/control-center.json` - canonical folder IDs, runtime, statuses, naming rules and automation policy.
-- `config/agents.yml` - managed agent roles and approval boundaries.
-- `docs` - architecture, runbook, secrets and operational handoff notes.
-- `.github/workflows/drive-ops.yml` - manual GitHub-native Drive operations workflow.
-- `.github/workflows/validate.yml` - repository and runtime validation workflow.
-- `apps-script/control-center` - legacy Apps Script reference, not the primary runtime.
+1. `01 metadata map` — быстрый metadata-only реестр без скачивания содержимого.
+2. `02 content classification` — ограниченный content inspection и классификация по правилам.
+3. `03 final inventory reports` — итоговые отчеты, дубли, sensitivity review, Excel.
+4. `04 AI readiness estimate` — estimate-only расчет пригодности и стоимости будущего Cloud AI-анализа.
 
-## Current Stage
+См. [docs/inventory_workflow.md](docs/inventory_workflow.md).
 
-Stage 2: complete GitHub-native preparation, normalize Drive structure, then start loading and auditing existing materials.
+## Локальный запуск инвентаризации
 
-Canonical Google Drive folders:
+```bash
+python -m knowledge_ops.drive_inventory \
+  --scope all-accessible-drive \
+  --config configs/drive_inventory.yml \
+  --out-dir out/drive_inventory \
+  --mode full \
+  --skip-google-sheets true \
+  --dry-run true \
+  --enable-content-inspection true \
+  --content-inspection-max-files 100 \
+  --store-content-preview false \
+  --store-sensitive-snippets false
+```
 
-- ARTSTUDIO: `17dKXkxMd_iiBz5AFbKtt7YvuEzo-bfQK`
-- 00_CONTROL_CENTER: `13riY7cN6DjiYg1k9ey19sdFgva8cP7dp`
-- 01_INBOX: created/validated by GitHub-native Drive Ops
-- pending-trash quarantine: `00_CONTROL_CENTER/99_Setup_Archive/00_PENDING_TRASH`
+## Локальный запуск AI estimate
 
-## Required Secret
+```bash
+python -m knowledge_ops.ai_analysis \
+  --inventory out/drive_inventory/inventory.csv \
+  --content-inspection out/drive_inventory/content_inspection.csv \
+  --out-dir out/ai_analysis_estimate \
+  --mode estimate \
+  --pricing-config configs/ai_analysis_pricing.yml \
+  --routing-config configs/ai_analysis_routing.yml \
+  --dry-run true
+```
 
-Add `GOOGLE_SERVICE_ACCOUNT_JSON` in GitHub repository secrets. Share the ARTSTUDIO root folder, `00_CONTROL_CENTER`, control spreadsheets and any project files outside ARTSTUDIO with the service account email as Editor.
+## Credentials
 
-See `docs/secrets.md` for optional secrets and access setup.
+Для реального Drive-листинга нужен один из вариантов:
 
-## Operating Model
+- `GOOGLE_SERVICE_ACCOUNT_JSON`
+- `GOOGLE_APPLICATION_CREDENTIALS`
 
-1. New material enters `01_INBOX`.
-2. Intake and Catalog agents classify it and write recommendations.
-3. Governance and QA agents check owners, statuses, duplicates and risks.
-4. Human decision is required for high-risk or meaning-changing updates.
-5. GitHub Actions executes approved or auto-safe rows and logs every result.
-6. Objects approved for removal from active structure are moved to `00_PENDING_TRASH` and logged in `Pending Trash Queue`.
+Опционально:
 
-## First Run
+- `GOOGLE_DELEGATED_USER`
 
-1. Run `Validate knowledge ops`.
-2. Run `GitHub-native Drive Ops` with `command = validate-readiness`, `dry_run = true`.
-3. Run `GitHub-native Drive Ops` with `command = complete-prep`, `dry_run = false`.
-4. Review `ARTSTUDIO_Reorganization_Plan`, especially `Pending Trash Queue`, `Folder Duplicate Audit` and manual rows.
-5. Run `validate-readiness` with `dry_run = false`.
+Service account должен иметь доступ на чтение к тем Drive-зонам, которые нужно инвентаризировать. Editor-доступ не требуется для текущего этапа.
 
-## Drive Inventory / Первый этап инвентаризации Google Drive
+## Документация
 
-Use `python -m knowledge_ops.drive_inventory --scope all-accessible-drive --config configs/drive_inventory.yml --out-dir out/drive_inventory --mode full --skip-google-sheets true --dry-run true` for the read-only first-stage inventory. Google Sheets are listed as skipped objects only; no Drive writes, deletes, moves, renames or permission changes are implemented in this contour.
-
-See `docs/drive_inventory.md` for local runs, GitHub Actions usage, report formats and review guidance.
-
-## AI Analysis Preparation & Pricing Estimator
-
-Use `python -m knowledge_ops.ai_analysis --inventory out/drive_inventory/inventory.csv --content-inspection out/drive_inventory/content_inspection.csv --out-dir out/ai_analysis_estimate --mode estimate --pricing-config configs/ai_analysis_pricing.yml --routing-config configs/ai_analysis_routing.yml --dry-run true` to estimate Cloud Vision, Document AI, Video Intelligence and Speech-to-Text eligibility and cost. Estimate mode never calls Cloud AI APIs.
-
-See `docs/ai_analysis_preparation.md` for routing, pricing config, safeguards and Google Cloud setup checklist.
+- [docs/drive_inventory.md](docs/drive_inventory.md) — инвентаризация и отчеты.
+- [docs/inventory_workflow.md](docs/inventory_workflow.md) — этапы workflow и рекомендуемый темп прогонов.
+- [docs/ai_analysis_preparation.md](docs/ai_analysis_preparation.md) — подготовка Cloud AI-анализа и estimate.

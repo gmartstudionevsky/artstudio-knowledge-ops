@@ -1,4 +1,4 @@
-name: Drive Inventory
+name: Drive Inventory Pipeline
 
 on:
   workflow_dispatch:
@@ -8,75 +8,23 @@ on:
         required: true
         default: "all-accessible-drive"
         type: choice
-        options:
-          - all-accessible-drive
-          - root
-          - folder
+        options: [all-accessible-drive, root, folder]
       root_folder_id:
         description: "Optional root folder ID for root/folder scope"
         required: false
         default: ""
-      mode:
-        description: "Inventory mode"
-        required: true
-        default: "full"
-        type: choice
-        options:
-          - inventory
-          - duplicates
-          - classify
-          - full
       max_files:
-        description: "Maximum files to scan; 0 means no limit"
+        description: "Maximum files to scan in each inventory stage; 0 means no limit"
         required: true
-        default: "100"
-      skip_google_sheets:
-        description: "Keep true for first-stage policy"
-        required: true
-        default: "true"
-        type: choice
-        options:
-          - "true"
-      include_content_hash:
-        description: "Hash ordinary file content within configured size limit"
-        required: true
-        default: "false"
-        type: choice
-        options:
-          - "false"
-          - "true"
-      include_google_export_hash:
-        description: "Export-hash Google Docs/Slides only; never Sheets"
-        required: true
-        default: "false"
-        type: choice
-        options:
-          - "false"
-          - "true"
-      include_media_hash:
-        description: "Hash image/video content within configured size limit"
-        required: true
-        default: "false"
-        type: choice
-        options:
-          - "false"
-          - "true"
-      enable_content_inspection:
-        description: "Extract limited text layer for rules-based classification"
-        required: true
-        default: "true"
-        type: choice
-        options:
-          - "true"
-          - "false"
-      content_char_limit:
-        description: "Maximum extracted characters used for classification"
-        required: true
-        default: "20000"
+        default: "500"
       content_inspection_max_files:
         description: "Maximum files to attempt content inspection; 0 means no limit"
         required: true
         default: "100"
+      content_char_limit:
+        description: "Maximum extracted characters used for classification"
+        required: true
+        default: "20000"
       content_page_limit:
         description: "Maximum PDF/presentation pages or slides"
         required: true
@@ -85,101 +33,170 @@ on:
         description: "Maximum file download size for content inspection"
         required: true
         default: "25"
-      enable_ocr:
-        description: "OCR images; disabled by default"
+      generate_ai_estimate:
+        description: "Run estimate-only AI readiness after final inventory"
         required: true
-        default: "false"
+        default: "true"
         type: choice
-        options:
-          - "false"
+        options: ["true", "false"]
 
 permissions:
   contents: read
 
+env:
+  GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+  GOOGLE_DELEGATED_USER: ${{ secrets.GOOGLE_DELEGATED_USER }}
+  INVENTORY_CONFIG: configs/drive_inventory.yml
+
 jobs:
-  drive-inventory:
+  metadata-map:
+    name: "01 metadata map"
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Validate required secret
-        env:
-          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+      - run: pip install -r requirements.txt
+      - name: Validate service account secret
         run: |
           set -euo pipefail
           test -n "$GOOGLE_SERVICE_ACCOUNT_JSON"
           python - <<'PY'
           import json, os
           data = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"])
-          required = ["client_email", "private_key", "project_id"]
-          missing = [key for key in required if not data.get(key)]
+          missing = [key for key in ["client_email", "private_key", "project_id"] if not data.get(key)]
           if missing:
               raise SystemExit(f"Missing service account fields: {missing}")
           print("service account json looks valid for", data["client_email"])
           PY
-
-      - name: Run read-only Drive inventory
-        env:
-          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-          GOOGLE_DELEGATED_USER: ${{ secrets.GOOGLE_DELEGATED_USER }}
+      - name: Run metadata-only inventory
         run: |
           set -euo pipefail
-          args=(
-            --scope "${{ github.event.inputs.scope }}"
-            --root-folder-id "${{ github.event.inputs.root_folder_id }}"
-            --config configs/drive_inventory.yml
-            --out-dir out/drive_inventory
-            --mode "${{ github.event.inputs.mode }}"
-            --max-files "${{ github.event.inputs.max_files }}"
-            --skip-google-sheets "${{ github.event.inputs.skip_google_sheets }}"
-            --dry-run true
-            --safe-mode true
-            --enable-content-inspection "${{ github.event.inputs.enable_content_inspection }}"
-            --content-inspection-max-files "${{ github.event.inputs.content_inspection_max_files }}"
-            --content-char-limit "${{ github.event.inputs.content_char_limit }}"
-            --content-page-limit "${{ github.event.inputs.content_page_limit }}"
-            --max-download-size-mb "${{ github.event.inputs.max_download_size_mb }}"
-            --enable-ocr "${{ github.event.inputs.enable_ocr }}"
-            --enable-excel-content-inspection true
-            --store-content-preview false
-            --store-sensitive-snippets false
-          )
-          if [ "${{ github.event.inputs.include_content_hash }}" = "true" ]; then
-            args+=(--include-content-hash)
-          fi
-          if [ "${{ github.event.inputs.include_google_export_hash }}" = "true" ]; then
-            args+=(--include-google-export-hash)
-          fi
-          if [ "${{ github.event.inputs.include_media_hash }}" = "true" ]; then
-            args+=(--include-media-hash)
-          fi
-          python -m knowledge_ops.drive_inventory "${args[@]}" | tee /tmp/drive-inventory-summary.json
-          {
-            echo "## Drive Inventory result"
-            echo ""
-            echo "- Scope: ${{ github.event.inputs.scope }}"
-            echo "- Mode: ${{ github.event.inputs.mode }}"
-            echo "- Max files: ${{ github.event.inputs.max_files }}"
-            echo "- Google Sheets: skipped by policy"
-            echo "- Drive writes: disabled"
-            echo ""
-            echo '```json'
-            cat /tmp/drive-inventory-summary.json
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Upload inventory artifact
-        uses: actions/upload-artifact@v4
+          python -m knowledge_ops.drive_inventory \
+            --scope "${{ github.event.inputs.scope }}" \
+            --root-folder-id "${{ github.event.inputs.root_folder_id }}" \
+            --config "$INVENTORY_CONFIG" \
+            --out-dir out/drive_inventory/01_metadata \
+            --mode inventory \
+            --max-files "${{ github.event.inputs.max_files }}" \
+            --skip-google-sheets true \
+            --dry-run true \
+            --safe-mode true \
+            --enable-content-inspection false
+      - uses: actions/upload-artifact@v4
         with:
-          name: drive-inventory-output
-          path: out/drive_inventory
+          name: drive-inventory-01-metadata
+          path: out/drive_inventory/01_metadata
+          if-no-files-found: error
+
+  content-classification:
+    name: "02 content classification"
+    needs: metadata-map
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: Run bounded content inspection
+        run: |
+          set -euo pipefail
+          python -m knowledge_ops.drive_inventory \
+            --scope "${{ github.event.inputs.scope }}" \
+            --root-folder-id "${{ github.event.inputs.root_folder_id }}" \
+            --config "$INVENTORY_CONFIG" \
+            --out-dir out/drive_inventory/02_content_classification \
+            --mode classify \
+            --max-files "${{ github.event.inputs.max_files }}" \
+            --skip-google-sheets true \
+            --dry-run true \
+            --safe-mode true \
+            --enable-content-inspection true \
+            --content-inspection-max-files "${{ github.event.inputs.content_inspection_max_files }}" \
+            --content-char-limit "${{ github.event.inputs.content_char_limit }}" \
+            --content-page-limit "${{ github.event.inputs.content_page_limit }}" \
+            --max-download-size-mb "${{ github.event.inputs.max_download_size_mb }}" \
+            --enable-ocr false \
+            --enable-excel-content-inspection true \
+            --store-content-preview false \
+            --store-sensitive-snippets false
+      - uses: actions/upload-artifact@v4
+        with:
+          name: drive-inventory-02-content-classification
+          path: out/drive_inventory/02_content_classification
+          if-no-files-found: error
+
+  final-inventory:
+    name: "03 final inventory reports"
+    needs: content-classification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: Run final inventory with duplicate reports
+        run: |
+          set -euo pipefail
+          python -m knowledge_ops.drive_inventory \
+            --scope "${{ github.event.inputs.scope }}" \
+            --root-folder-id "${{ github.event.inputs.root_folder_id }}" \
+            --config "$INVENTORY_CONFIG" \
+            --out-dir out/drive_inventory/03_final \
+            --mode full \
+            --max-files "${{ github.event.inputs.max_files }}" \
+            --skip-google-sheets true \
+            --dry-run true \
+            --safe-mode true \
+            --enable-content-inspection true \
+            --content-inspection-max-files "${{ github.event.inputs.content_inspection_max_files }}" \
+            --content-char-limit "${{ github.event.inputs.content_char_limit }}" \
+            --content-page-limit "${{ github.event.inputs.content_page_limit }}" \
+            --max-download-size-mb "${{ github.event.inputs.max_download_size_mb }}" \
+            --enable-ocr false \
+            --enable-excel-content-inspection true \
+            --store-content-preview false \
+            --store-sensitive-snippets false
+      - uses: actions/upload-artifact@v4
+        with:
+          name: drive-inventory-03-final
+          path: out/drive_inventory/03_final
+          if-no-files-found: error
+
+  ai-readiness-estimate:
+    name: "04 AI readiness estimate"
+    if: ${{ github.event.inputs.generate_ai_estimate == 'true' }}
+    needs: final-inventory
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: drive-inventory-03-final
+          path: out/drive_inventory/03_final
+      - name: Run estimate-only AI readiness
+        env:
+          AI_ANALYSIS_ALLOW_CLOUD_CALLS: "false"
+          AI_ANALYSIS_ALLOW_SENSITIVE_UPLOAD: "false"
+        run: |
+          set -euo pipefail
+          python -m knowledge_ops.ai_analysis \
+            --inventory out/drive_inventory/03_final/inventory.csv \
+            --content-inspection out/drive_inventory/03_final/content_inspection.csv \
+            --out-dir out/ai_analysis_estimate \
+            --mode estimate \
+            --pricing-config configs/ai_analysis_pricing.yml \
+            --routing-config configs/ai_analysis_routing.yml \
+            --dry-run true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: drive-inventory-04-ai-readiness
+          path: out/ai_analysis_estimate
           if-no-files-found: error

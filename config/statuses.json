@@ -1,9 +1,0 @@
-{
-  "priority": ["P1", "P2", "P3", "Backlog"],
-  "processingStatus": ["not started", "in progress", "needs context", "in review", "approved", "processed", "archived"],
-  "humanDecision": ["accepted", "rejected", "revise", "postponed", "needs discussion"],
-  "recommendedAction": ["keep", "archive duplicate", "move setup artifact", "move methodology file", "rename folder", "rename script project", "compare required", "merge required", "human review required", "no action", "approved for deletion candidate"],
-  "safeAction": ["archive only", "move only", "rename only", "compare only", "no automated action", "deletion blocked"],
-  "risk": ["low", "medium", "high"],
-  "validationStatus": ["pass", "warning", "fail", "not checked"]
-}
