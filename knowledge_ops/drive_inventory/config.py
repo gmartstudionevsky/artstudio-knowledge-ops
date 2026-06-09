@@ -35,6 +35,10 @@ class InventoryConfig:
     sensitivity_rules_config: str = "configs/drive_sensitivity_rules.yml"
     media_rules_config: str = "configs/drive_media_rules.yml"
     cleanup_rules_config: str = "configs/drive_cleanup_rules.yml"
+    classification_use_rule_index: bool = True
+    classification_strict_full_scan: bool = False
+    classification_normalization_cache_size: int = 50000
+    classification_slow_rule_ms: float = 2.0
     safe_mode: bool = True
     cache_dir: str = ".cache/drive_inventory"
 
@@ -78,6 +82,30 @@ class InventoryConfig:
             sensitivity_rules_config=inventory.get("sensitivity_rules_config", cls.sensitivity_rules_config),
             media_rules_config=inventory.get("media_rules_config", cls.media_rules_config),
             cleanup_rules_config=inventory.get("cleanup_rules_config", cls.cleanup_rules_config),
+            classification_use_rule_index=as_bool(
+                inventory.get("classification_engine", {}).get(
+                    "use_rule_index",
+                    inventory.get("classification_use_rule_index", cls.classification_use_rule_index),
+                )
+            ),
+            classification_strict_full_scan=as_bool(
+                inventory.get("classification_engine", {}).get(
+                    "strict_full_scan",
+                    inventory.get("classification_strict_full_scan", cls.classification_strict_full_scan),
+                )
+            ),
+            classification_normalization_cache_size=int(
+                inventory.get("classification_engine", {}).get(
+                    "normalization_cache_size",
+                    inventory.get("classification_normalization_cache_size", cls.classification_normalization_cache_size),
+                )
+            ),
+            classification_slow_rule_ms=float(
+                inventory.get("classification_engine", {}).get(
+                    "slow_rule_ms",
+                    inventory.get("classification_slow_rule_ms", cls.classification_slow_rule_ms),
+                )
+            ),
             safe_mode=as_bool(inventory.get("safe_mode", cls.safe_mode)),
             cache_dir=inventory.get("cache_dir", cls.cache_dir),
         )

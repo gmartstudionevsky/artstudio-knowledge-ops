@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -28,6 +29,8 @@ class InventoryResult:
     scope: str = "all-accessible-drive"
     mode: str = "full"
     limitations: List[str] = field(default_factory=list)
+    classification_diagnostics: Dict[str, Any] = field(default_factory=dict)
+    rule_performance_rows: List[Dict[str, str]] = field(default_factory=list)
 
     @property
     def folders(self) -> List[DriveInventoryItem]:
@@ -91,7 +94,9 @@ class DriveInventoryScanner:
                         item.content_extract_status = "skipped_content_inspection_limit"
                     else:
                         content_inspection_attempts += 1
+                        content_started = time.perf_counter()
                         content_result = self.content_inspector.inspect(item, file_obj)
+                        self.classifier.diagnostics.content_inspection_time_ms += (time.perf_counter() - content_started) * 1000
                         apply_content_result(item, content_result)
                 if mode in {"inventory", "duplicates", "full"}:
                     self._maybe_hash(item, file_obj)
@@ -102,7 +107,9 @@ class DriveInventoryScanner:
                 self._log(run_log_path, {"event": "error", **error})
 
         if mode in {"duplicates", "full"}:
+            duplicates_started = time.perf_counter()
             mark_duplicates(result.items)
+            self.classifier.diagnostics.duplicate_detection_time_ms += (time.perf_counter() - duplicates_started) * 1000
         unmapped_parent_count = sum(1 for item in result.items if item.full_path.startswith("/Unmapped parent "))
         if unmapped_parent_count:
             result.limitations.append(
@@ -110,6 +117,8 @@ class DriveInventoryScanner:
             )
         if self.config.include_perceptual_image_hash:
             result.limitations.append("Perceptual image hash is reserved for a future lightweight implementation.")
+        result.classification_diagnostics = self.classifier.diagnostics.snapshot(result.items)
+        result.rule_performance_rows = build_rule_performance_rows(self.classifier)
         return result
 
     def _maybe_hash(self, item: DriveInventoryItem, file_obj: Dict[str, Any]) -> None:
@@ -159,3 +168,31 @@ def build_paths(files: List[Dict[str, Any]]) -> Dict[str, str]:
     for file_obj in files:
         path_for(file_obj.get("id", ""))
     return path_cache
+
+
+def build_rule_performance_rows(classifier: MetadataClassifier) -> List[Dict[str, str]]:
+    rows = []
+    slow_threshold = float(classifier.config.classification_slow_rule_ms)
+    for stats in sorted(classifier.diagnostics.rule_stats.values(), key=lambda item: (item.source, item.rule_id)):
+        is_zero_hit = stats.match_count == 0
+        is_slow = stats.average_time_ms >= slow_threshold or stats.total_time_ms >= slow_threshold * 10
+        rows.append(
+            {
+                "source": stats.source,
+                "category": stats.category,
+                "rule_id": stats.rule_id,
+                "match_count": str(stats.match_count),
+                "files_affected_count": str(len(stats.files_affected)),
+                "average_time_ms": f"{stats.average_time_ms:.6f}",
+                "total_time_ms": f"{stats.total_time_ms:.6f}",
+                "regex_match_count": str(stats.regex_match_count),
+                "token_match_count": str(stats.token_match_count),
+                "confidence_contribution_total": f"{stats.confidence_contribution_total:.3f}",
+                "example_paths": " | ".join(stats.example_paths),
+                "is_zero_hit": str(is_zero_hit).lower(),
+                "is_slow_candidate": str(is_slow).lower(),
+                "is_high_value_rule": str(stats.match_count > 0 and stats.confidence_contribution_total >= 20).lower(),
+                "regex_errors": " | ".join(stats.regex_errors),
+            }
+        )
+    return rows

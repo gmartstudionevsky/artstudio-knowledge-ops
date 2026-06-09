@@ -25,5 +25,10 @@ drive_inventory:
   sensitivity_rules_config: configs/drive_sensitivity_rules.yml
   media_rules_config: configs/drive_media_rules.yml
   cleanup_rules_config: configs/drive_cleanup_rules.yml
+  classification_engine:
+    use_rule_index: true
+    strict_full_scan: false
+    normalization_cache_size: 50000
+    slow_rule_ms: 2.0
   safe_mode: true
   cache_dir: .cache/drive_inventory

@@ -8,6 +8,7 @@ from typing import List, Optional
 
 from knowledge_ops.drive_inventory.auth import build_read_only_drive_service
 from knowledge_ops.drive_inventory.config import as_bool, load_inventory_config
+from knowledge_ops.drive_inventory.classifier import write_rule_validation_reports
 from knowledge_ops.drive_inventory.drive_client import DriveInventoryClient
 from knowledge_ops.drive_inventory.report_writer import write_reports
 from knowledge_ops.drive_inventory.scanner import DriveInventoryScanner
@@ -18,6 +19,7 @@ DEFAULT_CONFIG_PATH = "configs/drive_inventory.yml"
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Read-only ARTSTUDIO Google Drive inventory")
+    parser.add_argument("command", nargs="?", default="run", choices=["run", "validate-rules"])
     parser.add_argument("--scope", default="all-accessible-drive", choices=["all-accessible-drive", "root", "folder"])
     parser.add_argument("--root-folder-id", default="")
     parser.add_argument("--config", default=DEFAULT_CONFIG_PATH)
@@ -72,9 +74,25 @@ def main(argv: Optional[List[str]] = None) -> int:
         store_content_preview=as_bool(args.store_content_preview),
         store_sensitive_snippets=as_bool(args.store_sensitive_snippets),
         content_rules_config=args.content_rules_config or config.content_rules_config,
+        classification_taxonomy_config=config.classification_taxonomy_config,
+        path_rules_config=config.path_rules_config,
+        filename_rules_config=config.filename_rules_config,
+        extension_rules_config=config.extension_rules_config,
+        sensitivity_rules_config=config.sensitivity_rules_config,
+        media_rules_config=config.media_rules_config,
+        cleanup_rules_config=config.cleanup_rules_config,
+        classification_use_rule_index=config.classification_use_rule_index,
+        classification_strict_full_scan=config.classification_strict_full_scan,
+        classification_normalization_cache_size=config.classification_normalization_cache_size,
+        classification_slow_rule_ms=config.classification_slow_rule_ms,
         safe_mode=as_bool(args.safe_mode),
         cache_dir=args.cache or config.cache_dir,
     )
+    out_dir = Path(args.out_dir)
+    if args.command == "validate-rules":
+        report = write_rule_validation_reports(config, out_dir)
+        print(json.dumps(report.summary, ensure_ascii=False, indent=2))
+        return 1 if report.errors else 0
     if not as_bool(args.dry_run):
         raise RuntimeError("Drive inventory is read-only. --dry-run must remain true for this first-stage contour.")
     if not config.skip_google_sheets:
@@ -82,7 +100,6 @@ def main(argv: Optional[List[str]] = None) -> int:
     if config.store_sensitive_snippets:
         raise RuntimeError("Sensitive snippets must not be stored in the first-stage inventory.")
 
-    out_dir = Path(args.out_dir)
     run_log = out_dir / "run_log.jsonl"
     service = build_read_only_drive_service()
     client = DriveInventoryClient(service, config=config)

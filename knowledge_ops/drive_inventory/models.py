@@ -52,6 +52,8 @@ INVENTORY_COLUMNS = [
     "matched_filename_rules",
     "matched_extension_rules",
     "matched_sensitivity_rules",
+    "matched_media_rules",
+    "matched_cleanup_rules",
     "path_confidence",
     "filename_confidence",
     "extension_confidence",
@@ -142,6 +144,8 @@ class DriveInventoryItem:
     matched_filename_rules: str = ""
     matched_extension_rules: str = ""
     matched_sensitivity_rules: str = ""
+    matched_media_rules: str = ""
+    matched_cleanup_rules: str = ""
     path_confidence: str = ""
     filename_confidence: str = ""
     extension_confidence: str = ""
