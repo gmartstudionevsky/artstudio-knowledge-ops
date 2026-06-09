@@ -21,7 +21,7 @@ rules:
     target_fields: {sensitivity_suggestion: "EGRN_sensitive", priority_for_human_review: "high", cleanup_category: "sensitive_review"}
     weight: 7
   - rule_id: sensitivity_legal_contract
-    tokens: ["договор", "соглашение", "доверенность", "юрид", "legal", "claim", "претензия", "иск"]
+    tokens: ["договор", "соглашение", "доверенность", "юрид", "legal", "claim", "претензия", "исковое заявление", "судебный иск"]
     target_fields: {sensitivity_suggestion: "legal_contract", priority_for_human_review: "high", cleanup_category: "legal_hold_review"}
     weight: 5
   - rule_id: sensitivity_financial
