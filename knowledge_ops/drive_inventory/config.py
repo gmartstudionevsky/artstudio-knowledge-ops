@@ -19,6 +19,7 @@ class InventoryConfig:
     include_media_hash: bool = False
     include_perceptual_image_hash: bool = False
     enable_content_inspection: bool = True
+    content_inspection_max_files: int = 0
     content_char_limit: int = 20000
     content_page_limit: int = 20
     max_download_size_mb: int = 25
@@ -46,6 +47,9 @@ class InventoryConfig:
                 inventory.get("include_perceptual_image_hash", cls.include_perceptual_image_hash)
             ),
             enable_content_inspection=as_bool(inventory.get("enable_content_inspection", cls.enable_content_inspection)),
+            content_inspection_max_files=int(
+                inventory.get("content_inspection_max_files", cls.content_inspection_max_files)
+            ),
             content_char_limit=int(inventory.get("content_char_limit", cls.content_char_limit)),
             content_page_limit=int(inventory.get("content_page_limit", cls.content_page_limit)),
             max_download_size_mb=int(inventory.get("max_download_size_mb", cls.max_download_size_mb)),

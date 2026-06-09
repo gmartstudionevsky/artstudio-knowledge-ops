@@ -5,6 +5,7 @@ import hashlib
 import html
 import io
 import re
+import warnings
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -153,14 +154,18 @@ class ContentInspector:
         ext = item.extension.lower()
         if mime_type in {DOCS_MIME, SLIDES_MIME}:
             return self.client.export_text(file_obj, max_bytes), "extracted_google_export_text"
+        if mime_type.startswith("application/vnd.google-apps."):
+            return "", "unsupported_google_native"
         if mime_type.startswith("image/"):
             return ("", "ocr_disabled" if not self.config.enable_ocr else "ocr_not_implemented")
-        if ext in {"zip", "rar", "7z", "tar", "gz"}:
+        if ext in ARCHIVE_EXTENSIONS:
             return "", "archive_metadata_only"
-        if ext in {"doc", "ppt", "xls"}:
+        if ext in LEGACY_BINARY_EXTENSIONS:
             return "", "unsupported_legacy_binary"
+        if not is_supported_download_type(ext, mime_type):
+            return "", "unsupported_type"
         data = self.client.download_bytes(file_obj, max_bytes)
-        if ext in {"txt", "csv", "html", "htm", "rtf"} or mime_type.startswith("text/"):
+        if ext in PLAIN_TEXT_EXTENSIONS or mime_type.startswith("text/"):
             return extract_plainish(data, ext), "extracted_plain_text"
         if ext == "docx":
             return extract_docx(data), "extracted_docx"
@@ -173,6 +178,16 @@ class ContentInspector:
         if ext == "pdf" or mime_type == "application/pdf":
             return extract_pdf_text(data, self.config.content_page_limit), "extracted_pdf_text"
         return "", "unsupported_type"
+
+
+def is_supported_download_type(ext: str, mime_type: str) -> bool:
+    return (
+        ext in PLAIN_TEXT_EXTENSIONS
+        or ext in ZIP_TEXT_EXTENSIONS
+        or ext in PDF_EXTENSIONS
+        or mime_type.startswith("text/")
+        or mime_type == "application/pdf"
+    )
 
 
 def apply_content_result(item: DriveInventoryItem, result: ContentInspectionResult) -> None:
@@ -277,7 +292,9 @@ def extract_pptx(data: bytes, slide_limit: int) -> str:
 def extract_xlsx(data: bytes, char_limit: int) -> str:
     from openpyxl import load_workbook
 
-    workbook = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        workbook = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
     chunks = []
     try:
         for sheet in workbook.worksheets[:10]:
@@ -343,3 +360,8 @@ def append_reason(existing: str, addition: str) -> str:
     if addition in existing:
         return existing
     return f"{existing}; {addition}"
+PLAIN_TEXT_EXTENSIONS = {"txt", "csv", "html", "htm", "rtf"}
+ZIP_TEXT_EXTENSIONS = {"docx", "pptx", "xlsx"}
+PDF_EXTENSIONS = {"pdf"}
+ARCHIVE_EXTENSIONS = {"zip", "rar", "7z", "tar", "gz"}
+LEGACY_BINARY_EXTENSIONS = {"doc", "ppt", "xls"}

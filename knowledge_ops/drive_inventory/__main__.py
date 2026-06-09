@@ -31,6 +31,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--include-media-hash", action="store_true")
     parser.add_argument("--include-perceptual-image-hash", action="store_true")
     parser.add_argument("--enable-content-inspection", default="true")
+    parser.add_argument("--content-inspection-max-files", type=int, default=None)
     parser.add_argument("--content-char-limit", type=int, default=None)
     parser.add_argument("--content-page-limit", type=int, default=None)
     parser.add_argument("--max-download-size-mb", type=int, default=None)
@@ -55,6 +56,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         include_media_hash=args.include_media_hash or config.include_media_hash,
         include_perceptual_image_hash=args.include_perceptual_image_hash or config.include_perceptual_image_hash,
         enable_content_inspection=as_bool(args.enable_content_inspection),
+        content_inspection_max_files=(
+            args.content_inspection_max_files
+            if args.content_inspection_max_files is not None
+            else config.content_inspection_max_files
+        ),
         content_char_limit=args.content_char_limit if args.content_char_limit is not None else config.content_char_limit,
         content_page_limit=args.content_page_limit if args.content_page_limit is not None else config.content_page_limit,
         max_download_size_mb=args.max_download_size_mb if args.max_download_size_mb is not None else config.max_download_size_mb,
