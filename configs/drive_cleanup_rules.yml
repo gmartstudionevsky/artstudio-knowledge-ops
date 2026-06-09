@@ -1,0 +1,30 @@
+rules:
+  - rule_id: cleanup_system_trash
+    tokens: ["Thumbs.db", ".DS_Store", "desktop.ini", ".tmp", ".lnk", ".wbk", "Diagnostics"]
+    extensions: ["db", "ini", "tmp", "lnk", "wbk", "log"]
+    target_fields: {cleanup_category: "system_trash_candidate", lifecycle_status: "temp_system", priority_for_human_review: "low"}
+    weight: 10
+  - rule_id: cleanup_temp
+    tokens: ["Temp", "tmp", "temporary", "временн", "новая папка", "не исправлены", "нужно поправить"]
+    target_fields: {cleanup_category: "temp_file_candidate", lifecycle_status: "draft", priority_for_human_review: "medium"}
+    weight: 5
+  - rule_id: cleanup_archive
+    tokens: ["архив", "archive", "old", "старое", "копия", "copy", "backup", "compressed", "выгруженные"]
+    target_fields: {cleanup_category: "archive_review", lifecycle_status: "archive", priority_for_human_review: "normal"}
+    weight: 4
+  - rule_id: cleanup_contract_archive
+    tokens: ["договор", "ДКП", "ДДУ", "АПП", "Агентский", "Договор ТО", "подписанное"]
+    target_fields: {cleanup_category: "contract_archive_review", lifecycle_status: "signed", priority_for_human_review: "high"}
+    weight: 5
+  - rule_id: cleanup_sensitive_review
+    tokens: ["паспорт", "ЕГРН", "собственник", "табель", "касса", "БИК", "ИНН", "персональные данные"]
+    target_fields: {cleanup_category: "sensitive_review", priority_for_human_review: "high"}
+    weight: 6
+  - rule_id: cleanup_media
+    tokens: ["Фото", "SMM", "СММ", "фотосессия", "видео", "reels", "stories"]
+    target_fields: {cleanup_category: "media_review", priority_for_human_review: "medium"}
+    weight: 4
+  - rule_id: cleanup_cloud_candidate
+    extensions: ["pdf", "jpg", "jpeg", "png", "webp", "mp4", "mov", "mp3", "m4a", "wav"]
+    target_fields: {cloud_analysis_candidate: true}
+    weight: 2

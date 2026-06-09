@@ -1,0 +1,105 @@
+rules:
+  - rule_id: object_nevsky_path
+    tokens: ["ARTSTUDIO Nevsky", "Nevsky", "Невский", "АН", "AN", "2Советская", "2 Советская", "2-я Советская", "2-я Советская ул", "2-я Советская ул, д. 4б", "Советская", "Артстудио Невский", "Апарт Премиум Невский", "ApartPremium Nevsky", "АпартПремиум Невский", "Фотографии ARTSTUDIO Nevsky", "ПРИЕМ-ПЕРЕДАЧА АГЕНТСКИЙ СОВЕТСКАЯ"]
+    target_fields: {object_suggestion: "ARTSTUDIO Nevsky"}
+    weight: 7
+  - rule_id: object_moskovsky_path
+    tokens: ["ARTSTUDIO Moskovsky", "Moskovsky", "Московский", "АМ", "AM", "Заозерная", "Заозёрная", "Заозерная к1", "Заозерная к2", "Передача Заозёрная", "Выписки Заоз", "ДОГОВОРЫ АРТСТУДИО МОСКОВСКИЙ", "ARTSTUDIO AM"]
+    target_fields: {object_suggestion: "ARTSTUDIO Moskovsky"}
+    weight: 7
+  - rule_id: object_m103_path
+    tokens: ["ARTSTUDIO M103", "M103", "М103", "Ташкентская", "М103 (документы на приёмку)", "М103 (все доки с паблика)", "ДОГОВОРЫ АРТСТУДИО М-103", "ДОГОВОРЫ АРТСТУДИО М103", "Агенский РД (М103)", "Агентский РД (М103)", "АПП (М103)", "Договор купли-продажи (М103)"]
+    target_fields: {object_suggestion: "ARTSTUDIO M103"}
+    weight: 7
+  - rule_id: object_network_rbi_path
+    tokens: ["RBI PM", "РБИ ПМ", "ЭР-БИ-АЙ ПМ", "УК", "управляющая компания", "сеть ARTSTUDIO", "Brand Context", "Standards SOP", "Control Center", "Official Sites", "OTA", "Reviews", "Legal Files", "Owner Investor", "Competitors Market"]
+    target_fields: {object_suggestion: "RBI PM / УК"}
+    weight: 5
+  - rule_id: object_apartpremium_path
+    tokens: ["ApartPremium", "Апарт Премиум", "АпартПремиум"]
+    target_fields: {object_suggestion: "ApartPremium"}
+    weight: 4
+  - rule_id: owner_relations_path
+    tokens: ["Отдел по работе с собственниками", "Документы собственников", "Документы по номерам в управлении", "Реестры в управлении ВСЕ", "собственники", "Owner Investor"]
+    target_fields: {department_suggestion: "Owner Relations / отдел по работе с собственниками", function_suggestion: "owner_registry", document_family_suggestion: "owner_document", process_suggestion: "owner_reporting", audience_suggestion: "собственники", sensitivity_suggestion: "owner_data", cleanup_category: "sensitive_review"}
+    weight: 6
+  - rule_id: owner_contracts_path
+    tokens: ["Договоры Аренды", "Договоры аренды", "Агентские договоры", "Агентские (АД)", "Агентские (не исправлены)", "Агентский", "Агенский РД", "Агентский РД", "АМ Аренда РД", "Договор ТО(Техобслуживание)", "Договоры на ТО", "ДД", "РД", "ДКП", "ДДУ", "ДС ПСД&ЮДП", "Договор на Мебель"]
+    target_fields: {department_suggestion: "Договорной контур собственников", function_suggestion: "owner_contracts", document_family_suggestion: "contract", process_suggestion: "owner_contracting", sensitivity_suggestion: "owner_contract", cleanup_category: "owner_contract_review"}
+    weight: 7
+  - rule_id: owner_acceptance_path
+    tokens: ["АПП", "АПП к АД", "Пакет Арендатора", "Приём и передача", "Прием и передача", "Передача Заозёрная", "Передача по датам", "М103 (документы на приёмку)"]
+    target_fields: {department_suggestion: "Передача / приёмка апартаментов", function_suggestion: "owner_acceptance_transfer", document_family_suggestion: "act", document_type_suggestion: "acceptance_transfer_act", process_suggestion: "owner_acceptance_transfer", sensitivity_suggestion: "owner_contract", cleanup_category: "owner_contract_review"}
+    weight: 7
+  - rule_id: egrn_cadastre_path
+    tokens: ["Выписки ЕГРН", "Выписки ЕГРН октябрь-ноябрь 2024", "Выписки Заоз", "ПИБ", "кадастр", "кадастровый", "ЕГРН"]
+    target_fields: {department_suggestion: "Owner Relations / отдел по работе с собственниками", function_suggestion: "cadastre_egrn", document_family_suggestion: "egrn_cadastre_document", document_type_suggestion: "owner_EGRN_extract", process_suggestion: "EGRN", sensitivity_suggestion: "EGRN_sensitive", cleanup_category: "sensitive_review"}
+    weight: 7
+  - rule_id: finance_accounting_path
+    tokens: ["КУ", "УПД", "квитанции на аванс", "КП и счета на закупку", "КП по кондеям", "перевыставления ТМЦ", "счета", "квитанции", "Finance", "Accounting", "бухгалтерия", "касса"]
+    target_fields: {department_suggestion: "Finance", function_suggestion: "finance_accounting", document_family_suggestion: "financial_document", process_suggestion: "accounting", sensitivity_suggestion: "financial", cleanup_category: "sensitive_review"}
+    weight: 6
+  - rule_id: hr_path
+    tokens: ["Табели", "HR", "кадры", "Отдел кадров шаблоны", "персонал", "график работы"]
+    target_fields: {department_suggestion: "HR / кадры", function_suggestion: "hr_documents", document_family_suggestion: "HR_document", process_suggestion: "payroll_or_timesheet", sensitivity_suggestion: "HR", cleanup_category: "sensitive_review"}
+    weight: 6
+  - rule_id: front_office_path
+    tokens: ["Front Office", "СПиР", "Reception", "FOM", "Concierge", "Concierge Book", "Fidelio", "PMS", "TravelLine", "TL", "Менеджер по электронным продажам"]
+    target_fields: {department_suggestion: "СПиР / Front Office / Reception", function_suggestion: "guest_operations", document_family_suggestion: "guest_document", process_suggestion: "guest_registration", audience_suggestion: "сотрудники СПиР", sensitivity_suggestion: "guest_data"}
+    weight: 6
+  - rule_id: booking_ota_path
+    tokens: ["ОТА", "OTA", "TravelLine", "TL", "электронные продажи", "бронирование", "Reservations"]
+    target_fields: {department_suggestion: "OTA / электронные каналы", function_suggestion: "ota_management", process_suggestion: "OTA_management", sensitivity_suggestion: "commercial"}
+    weight: 5
+  - rule_id: ota_channel_path
+    tokens: ["ОТА", "OTA", "TravelLine"]
+    target_fields: {department_suggestion: "OTA / электронные каналы", function_suggestion: "ota_management", process_suggestion: "OTA_management", sensitivity_suggestion: "commercial"}
+    weight: 9
+  - rule_id: housekeeping_path
+    tokens: ["Housekeeping", "HSK", "HSKP", "ХСК", "номерной фонд", "Фото номерного фонда", "Фото номеров"]
+    target_fields: {department_suggestion: "Housekeeping / ХСК / HSK / HSKP", function_suggestion: "housekeeping_operations", process_suggestion: "room_cleaning", document_family_suggestion: "standard_sop"}
+    weight: 5
+  - rule_id: engineering_renovation_path
+    tokens: ["ИТС", "Engineering", "техническая служба", "Реновация", "Реновация 2023_кондиционеры", "Реновация 2024", "кондиционеры", "ремонт"]
+    target_fields: {department_suggestion: "Engineering / ИТС / техническая служба", function_suggestion: "maintenance_and_repairs", document_family_suggestion: "technical_document", process_suggestion: "technical_maintenance", sensitivity_suggestion: "technical"}
+    weight: 6
+  - rule_id: marketing_media_path
+    tokens: ["Фото", "Фото SMM", "Фотографии апартов", "архивные фото номеров", "Дизайнерские номера", "Дизайнерские полулюксы", "Фотосессия", "фотосессии 2024", "фотосессии 2025", "Завтраки", "мерч", "СММ", "SMM", "GRANI", "Grani фото", "Content", "Photo", "Video"]
+    target_fields: {department_suggestion: "Content / Photo / Video", function_suggestion: "marketing_media", document_family_suggestion: "media_asset", process_suggestion: "marketing_photo", sensitivity_suggestion: "publication_review_required", cleanup_category: "media_review"}
+    weight: 8
+  - rule_id: revenue_sales_path
+    tokens: ["Revenue", "Revenue (папка с ноута)", "Коммерческий отдел", "Отдел продаж", "Sales", "Corporate Sales", "Pricing", "тарифы", "ценообразование"]
+    target_fields: {department_suggestion: "Revenue", function_suggestion: "revenue_management", process_suggestion: "revenue_management", sensitivity_suggestion: "commercial"}
+    weight: 5
+  - rule_id: sales_department_path
+    tokens: ["Отдел продаж", "Sales", "Corporate Sales"]
+    target_fields: {department_suggestion: "Sales / отдел продаж", function_suggestion: "sales_pipeline", process_suggestion: "sales", sensitivity_suggestion: "commercial"}
+    weight: 7
+  - rule_id: booking_department_path
+    tokens: ["Отдел бронирования", "Reservations", "бронирование"]
+    target_fields: {department_suggestion: "Бронирование / Reservations", function_suggestion: "booking_operations", process_suggestion: "booking", sensitivity_suggestion: "commercial"}
+    weight: 7
+  - rule_id: marketing_department_path
+    tokens: ["Отдел маркетинга", "Marketing", "маркетинг"]
+    target_fields: {department_suggestion: "Marketing", function_suggestion: "marketing_media", process_suggestion: "brand_management", sensitivity_suggestion: "publication_review_required"}
+    weight: 7
+  - rule_id: analytics_reports_path
+    tokens: ["Отчеты", "Отчеты по выездам NPS", "Для аналитики", "Analytics", "dashboard", "NPS"]
+    target_fields: {department_suggestion: "Analytics / отчётность", function_suggestion: "reporting_and_analytics", document_family_suggestion: "report", process_suggestion: "analytics"}
+    weight: 5
+  - rule_id: official_legal_path
+    tokens: ["Уголок потребителя", "Legal Files", "Compliance", "обязательные документы", "сертификаты", "лицензии", "МЧС", "Роспотребнадзор"]
+    target_fields: {department_suggestion: "Compliance / обязательные документы", function_suggestion: "legal_compliance", document_family_suggestion: "official_mandatory_document", process_suggestion: "legal_claims", sensitivity_suggestion: "legal_contract", cleanup_category: "legal_hold_review"}
+    weight: 6
+  - rule_id: source_public_copy_path
+    tokens: ["Public - копия", "М103 (все доки с паблика)"]
+    target_fields: {source_origin: "Public copy", lifecycle_status: "archive", cleanup_category: "archive_review"}
+    weight: 4
+  - rule_id: source_laptop_export_path
+    tokens: ["папка с ноута", "выгруженные", "удаленка", "рабочая", "новая папка", "обработаны КЦ RBI", "переданы"]
+    target_fields: {source_origin: "user_laptop_export", lifecycle_status: "exported_copy", cleanup_category: "archive_review"}
+    weight: 4
+  - rule_id: source_chat_export_path
+    tokens: ["ChatExport", "ChatExport_2026-03-25", "photos"]
+    target_fields: {source_origin: "WhatsApp_or_messenger_export", document_family_suggestion: "media_asset", cleanup_category: "media_review"}
+    weight: 4

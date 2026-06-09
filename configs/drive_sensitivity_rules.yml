@@ -1,0 +1,43 @@
+rules:
+  - rule_id: sensitivity_owner
+    tokens: ["собственник", "owner", "инвестор", "доход собственника", "удержание", "равный доход", "динамический доход"]
+    target_fields: {sensitivity_suggestion: "owner_data", priority_for_human_review: "high", cleanup_category: "sensitive_review"}
+    weight: 6
+  - rule_id: sensitivity_guest
+    tokens: ["гость", "guest", "паспорт", "миграционный", "регистрация гостей", "карта гостя"]
+    target_fields: {sensitivity_suggestion: "guest_data", priority_for_human_review: "high", cleanup_category: "sensitive_review"}
+    weight: 6
+  - rule_id: sensitivity_employee
+    tokens: ["сотрудник", "кадры", "hr", "табель", "персонал", "трудовой договор", "должностная инструкция"]
+    target_fields: {sensitivity_suggestion: "employee_data", priority_for_human_review: "high", cleanup_category: "sensitive_review"}
+    weight: 6
+  - rule_id: sensitivity_personal_regex
+    regex_patterns: ["[A-ZА-Я0-9._%+-]+@[A-ZА-Я0-9.-]+\\.[A-ZА-Я]{2,}", "(?:\\+7|8)\\s*\\(?\\d{3}\\)?\\s*\\d{3}[-\\s]?\\d{2}[-\\s]?\\d{2}", "\\b\\d{4}\\s*\\d{6}\\b", "\\b\\d{3}-\\d{3}-\\d{3}\\s?\\d{2}\\b"]
+    target_fields: {sensitivity_suggestion: "personal_data", priority_for_human_review: "high", cleanup_category: "sensitive_review"}
+    weight: 7
+  - rule_id: sensitivity_egrn_cadastre
+    tokens: ["ЕГРН", "кадастр", "кадастровый номер", "ПИБ"]
+    regex_patterns: ["\\b\\d{2}:\\d{2}:\\d{6,7}:\\d+\\b"]
+    target_fields: {sensitivity_suggestion: "EGRN_sensitive", priority_for_human_review: "high", cleanup_category: "sensitive_review"}
+    weight: 7
+  - rule_id: sensitivity_legal_contract
+    tokens: ["договор", "соглашение", "доверенность", "юрид", "legal", "claim", "претензия", "иск"]
+    target_fields: {sensitivity_suggestion: "legal_contract", priority_for_human_review: "high", cleanup_category: "legal_hold_review"}
+    weight: 5
+  - rule_id: sensitivity_financial
+    tokens: ["финанс", "счет", "счёт", "оплата", "платеж", "платёж", "касса", "НДС", "УПД", "БИК", "ИНН"]
+    regex_patterns: ["\\b\\d{20}\\b", "\\bБИК\\s*[:№]?\\s*\\d{9}\\b", "\\bИНН\\s*[:№]?\\s*\\d{10,12}\\b"]
+    target_fields: {sensitivity_suggestion: "financial", priority_for_human_review: "high", cleanup_category: "sensitive_review"}
+    weight: 6
+  - rule_id: sensitivity_security_fire
+    tokens: ["охрана", "доступ", "ключ", "карта доступа", "пожар", "эвакуация", "АПС", "СОУЭ", "МЧС"]
+    target_fields: {sensitivity_suggestion: "security", priority_for_human_review: "high", cleanup_category: "sensitive_review"}
+    weight: 5
+  - rule_id: sensitivity_brand_publication
+    tokens: ["бренд", "логотип", "макет", "SMM", "фото", "видео", "публикация", "reels", "stories"]
+    target_fields: {sensitivity_suggestion: "publication_review_required", priority_for_human_review: "medium", cleanup_category: "media_review"}
+    weight: 4
+  - rule_id: sensitivity_system_trash
+    tokens: ["Thumbs.db", ".DS_Store", "desktop.ini", "Temp", "Diagnostics", ".tmp", ".lnk", ".wbk"]
+    target_fields: {sensitivity_suggestion: "system_trash", priority_for_human_review: "low", cleanup_category: "system_trash_candidate"}
+    weight: 9

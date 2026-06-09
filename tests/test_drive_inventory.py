@@ -71,9 +71,68 @@ class DriveInventoryClassifierTest(unittest.TestCase):
         )
         classify_item(item)
         self.assertEqual(item.object_suggestion, "ARTSTUDIO Nevsky")
-        self.assertEqual(item.department_suggestion, "собственники / owner relations")
-        self.assertEqual(item.document_type_suggestion, "договор")
-        self.assertEqual(item.sensitivity_suggestion, "owner_data")
+        self.assertEqual(item.department_suggestion, "Owner Relations / отдел по работе с собственниками")
+        self.assertEqual(item.document_family_suggestion, "contract")
+        self.assertEqual(item.sensitivity_suggestion, "owner_contract")
+
+    def assert_classifies(self, path, name, expected):
+        item = DriveInventoryItem(
+            file_id="x",
+            name=name,
+            normalized_name=normalize_name(name),
+            mime_type="application/pdf",
+            object_kind="file",
+            extension=split_extension(name, "application/pdf")[1] or "pdf",
+            full_path=path,
+        )
+        classify_item(item)
+        for field, value in expected.items():
+            self.assertEqual(getattr(item, field), value, f"{field} for {path} / {name}")
+        return item
+
+    def test_object_detection_v2(self):
+        self.assert_classifies("/Public - копия/Отдел по работе с собственниками/2Советская", "file.pdf", {"object_suggestion": "ARTSTUDIO Nevsky"})
+        self.assert_classifies("/Передача Заозерная/Договоры", "file.pdf", {"object_suggestion": "ARTSTUDIO Moskovsky"})
+        self.assert_classifies("/М103 (все доки с паблика)", "file.pdf", {"object_suggestion": "ARTSTUDIO M103"})
+        self.assert_classifies("/ЭР-БИ-АЙ ПМ/Legal Files", "file.pdf", {"object_suggestion": "RBI PM / УК"})
+
+    def test_department_detection_v2(self):
+        cases = [
+            ("/Отдел по работе с собственниками", "реестр.pdf", "Owner Relations / отдел по работе с собственниками"),
+            ("/Front Office", "check-in.pdf", "СПиР / Front Office / Reception"),
+            ("/Housekeeping", "чеклист.pdf", "Housekeeping / ХСК / HSK / HSKP"),
+            ("/ИТС", "ППР.pdf", "Engineering / ИТС / техническая служба"),
+            ("/Коммерческий отдел", "pricing.pdf", "Revenue"),
+            ("/Отдел маркетинга/Фото SMM", "photo.jpg", "Content / Photo / Video"),
+            ("/Отдел бронирования/OTA", "tl.pdf", "OTA / электронные каналы"),
+            ("/Отдел продаж", "pipeline.pdf", "Sales / отдел продаж"),
+            ("/Отдел кадров шаблоны", "табели.xlsx", "HR / кадры"),
+        ]
+        for path, name, department in cases:
+            self.assert_classifies(path, name, {"department_suggestion": department})
+
+    def test_document_type_detection_v2(self):
+        cases = [
+            ("Договор ТО.pdf", "technical_maintenance_contract"),
+            ("Агентские договоры.pdf", "agency_contract"),
+            ("ДКП.pdf", "purchase_sale_contract"),
+            ("ДДУ.pdf", "DDU"),
+            ("АПП.pdf", "acceptance_transfer_act"),
+            ("Выписки ЕГРН.pdf", "owner_EGRN_extract"),
+            ("УПД.pdf", "UPD"),
+            ("квитанции на аванс.pdf", "invoice"),
+            ("табели.xlsx", "timesheet"),
+            ("SOP check-in.pdf", "checkin_sop"),
+            ("Фото SMM.jpg", "SMM_photo"),
+            ("КП и счета.pdf", "invoice"),
+        ]
+        for name, document_type in cases:
+            self.assert_classifies("/ARTSTUDIO Nevsky/Рабочая папка", name, {"document_type_suggestion": document_type})
+
+    def test_system_trash_detection_v2(self):
+        for name in ["Thumbs.db", ".DS_Store", "desktop.ini", "Temp.tmp", "Diagnostics.log", "shortcut.lnk", "draft.tmp", "old.wbk"]:
+            item = self.assert_classifies("/Temp/Diagnostics", name, {"cleanup_category": "system_trash_candidate"})
+            self.assertEqual(item.classification_status, "CLASSIFIED_SYSTEM_TRASH")
 
 
 class DriveInventoryDuplicateTest(unittest.TestCase):

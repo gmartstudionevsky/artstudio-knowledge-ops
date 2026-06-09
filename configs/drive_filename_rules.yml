@@ -1,0 +1,93 @@
+rules:
+  - rule_id: owner_contract_filename
+    tokens: ["договор собственника", "договор с собственником", "договоры собственников", "собственника"]
+    target_fields: {document_family_suggestion: "contract", document_type_suggestion: "owner_management_contract", function_suggestion: "owner_contracts", process_suggestion: "owner_contracting", sensitivity_suggestion: "owner_contract", cleanup_category: "owner_contract_review"}
+    weight: 11
+  - rule_id: contract_generic_filename
+    tokens: ["договор", "contract", "соглашение", "agreement"]
+    target_fields: {document_family_suggestion: "contract", document_type_suggestion: "service_contract", process_suggestion: "owner_contracting", sensitivity_suggestion: "legal_contract", cleanup_category: "contract_archive_review"}
+    weight: 4
+  - rule_id: contract_technical_maintenance_filename
+    tokens: ["Договор ТО", "Техобслуживание", "техническое обслуживание", "Договоры на ТО"]
+    target_fields: {document_family_suggestion: "contract", document_type_suggestion: "technical_maintenance_contract", function_suggestion: "owner_technical_maintenance", process_suggestion: "technical_maintenance", sensitivity_suggestion: "legal_contract", cleanup_category: "owner_contract_review"}
+    weight: 6
+  - rule_id: contract_agency_filename
+    tokens: ["Агентские договоры", "Агентский", "Агенский", "АД", "agency"]
+    target_fields: {document_family_suggestion: "contract", document_type_suggestion: "agency_contract", function_suggestion: "owner_contracts", process_suggestion: "owner_contracting", sensitivity_suggestion: "owner_contract", cleanup_category: "owner_contract_review"}
+    weight: 5
+  - rule_id: contract_sale_ddu_filename
+    tokens: ["ДКП", "ДДУ", "договор купли-продажи", "купли продажи"]
+    target_fields: {document_family_suggestion: "contract", document_type_suggestion: "purchase_sale_contract", function_suggestion: "real_estate_documents", process_suggestion: "cadastral_data", sensitivity_suggestion: "legal_contract", cleanup_category: "legal_hold_review"}
+    weight: 6
+  - rule_id: ddu_filename
+    tokens: ["ДДУ"]
+    target_fields: {document_family_suggestion: "contract", document_type_suggestion: "DDU", function_suggestion: "real_estate_documents", process_suggestion: "cadastral_data", sensitivity_suggestion: "legal_contract", cleanup_category: "legal_hold_review"}
+    weight: 8
+  - rule_id: app_acceptance_filename
+    tokens: ["АПП", "акт приема", "акт приёма", "прием-передача", "приём-передача", "acceptance transfer"]
+    target_fields: {document_family_suggestion: "act", document_type_suggestion: "acceptance_transfer_act", function_suggestion: "owner_acceptance_transfer", process_suggestion: "owner_acceptance_transfer", sensitivity_suggestion: "owner_contract"}
+    weight: 6
+  - rule_id: egrn_pib_filename
+    tokens: ["ЕГРН", "выписка", "ПИБ", "кадастровый", "кадастр"]
+    target_fields: {document_family_suggestion: "egrn_cadastre_document", document_type_suggestion: "owner_EGRN_extract", function_suggestion: "cadastre_egrn", process_suggestion: "EGRN", sensitivity_suggestion: "EGRN_sensitive"}
+    weight: 6
+  - rule_id: finance_invoice_filename
+    tokens: ["УПД", "счет", "счёт", "счет-фактура", "счёт-фактура", "квитанция", "аванс", "платежное поручение", "платёжное поручение"]
+    target_fields: {document_family_suggestion: "financial_document", document_type_suggestion: "invoice", function_suggestion: "finance_accounting", process_suggestion: "accounting", sensitivity_suggestion: "financial"}
+    weight: 5
+  - rule_id: upd_filename
+    tokens: ["УПД"]
+    target_fields: {document_family_suggestion: "accounting_document", document_type_suggestion: "UPD", function_suggestion: "finance_accounting", process_suggestion: "accounting", sensitivity_suggestion: "accounting"}
+    weight: 8
+  - rule_id: finance_invoice_bundle_filename
+    tokens: ["КП и счета", "КП + счета", "коммерческое предложение и счет", "счета"]
+    target_fields: {document_family_suggestion: "financial_document", document_type_suggestion: "invoice", function_suggestion: "finance_accounting", process_suggestion: "accounting", sensitivity_suggestion: "financial"}
+    weight: 7
+  - rule_id: commercial_offer_filename
+    tokens: ["КП", "коммерческое предложение", "смета", "спецификация"]
+    target_fields: {document_family_suggestion: "procurement_document", document_type_suggestion: "procurement_invoice", function_suggestion: "procurement_and_suppliers", process_suggestion: "procurement", sensitivity_suggestion: "supplier_pricing"}
+    weight: 4
+  - rule_id: hr_timesheet_filename
+    tokens: ["табель", "табели", "график работы", "vacation", "отпуск", "приказ", "должностная инструкция"]
+    target_fields: {document_family_suggestion: "HR_document", document_type_suggestion: "timesheet", function_suggestion: "staff_schedules", process_suggestion: "payroll_or_timesheet", sensitivity_suggestion: "HR"}
+    weight: 5
+  - rule_id: sop_instruction_filename
+    tokens: ["SOP", "регламент", "стандарт", "инструкция", "алгоритм", "памятка", "чек-лист", "checklist"]
+    target_fields: {document_family_suggestion: "standard_sop", document_type_suggestion: "checkin_sop", function_suggestion: "training_and_sop", process_suggestion: "staff_training", sensitivity_suggestion: "operational", cleanup_category: "canonical_review"}
+    weight: 5
+  - rule_id: front_office_filename
+    tokens: ["check-in", "check in", "check-out", "check out", "заселение", "выезд", "миграционный", "карта гостя", "ключ-карта", "Fidelio", "TravelLine"]
+    target_fields: {department_suggestion: "СПиР / Front Office / Reception", document_family_suggestion: "guest_document", document_type_suggestion: "guest_registration_instruction", function_suggestion: "guest_registration", process_suggestion: "guest_registration", sensitivity_suggestion: "guest_data"}
+    weight: 5
+  - rule_id: housekeeping_filename
+    tokens: ["уборка", "горничная", "супервайзер", "linen", "белье", "бельё", "minibar", "комплектация номера"]
+    target_fields: {department_suggestion: "Housekeeping / ХСК / HSK / HSKP", document_family_suggestion: "checklist", document_type_suggestion: "cleaning_checklist", function_suggestion: "housekeeping_operations", process_suggestion: "room_cleaning"}
+    weight: 4
+  - rule_id: engineering_filename
+    tokens: ["ППР", "дефектная", "заявка", "кондиционер", "вентиляция", "электрика", "сантехника", "оборудование", "паспорт оборудования"]
+    target_fields: {department_suggestion: "Engineering / ИТС / техническая служба", document_family_suggestion: "technical_document", document_type_suggestion: "maintenance_schedule", function_suggestion: "engineering_operations", process_suggestion: "technical_maintenance", sensitivity_suggestion: "technical"}
+    weight: 4
+  - rule_id: smm_photo_filename
+    tokens: ["Фото SMM", "SMM", "reels", "stories", "сторис", "фотосессия", "фото номеров", "room photo", "facade"]
+    target_fields: {department_suggestion: "SMM", document_family_suggestion: "photo_asset", document_type_suggestion: "SMM_photo", function_suggestion: "photo_archive", process_suggestion: "marketing_photo", sensitivity_suggestion: "publication_review_required", cleanup_category: "media_review"}
+    weight: 5
+  - rule_id: brand_design_filename
+    tokens: ["брендбук", "логотип", "logo", "макет", "баннер", "poster", "афиша", "AI", "EPS", "SVG"]
+    target_fields: {department_suggestion: "Brand / Design", document_family_suggestion: "brand_asset", document_type_suggestion: "logo", function_suggestion: "brand_assets", process_suggestion: "brand_management", sensitivity_suggestion: "brand_sensitive", cleanup_category: "marketing_review"}
+    weight: 5
+  - rule_id: report_analytics_filename
+    tokens: ["отчет", "отчёт", "NPS", "analytics", "dashboard", "revenue report", "occupancy", "market analysis"]
+    target_fields: {department_suggestion: "Analytics / отчётность", document_family_suggestion: "report", document_type_suggestion: "monthly_report", function_suggestion: "reporting_and_analytics", process_suggestion: "analytics", sensitivity_suggestion: "commercial"}
+    weight: 4
+  - rule_id: lifecycle_final_signed_filename
+    tokens: ["актуально", "финал", "final", "готовые", "подписанное", "ЭДО подписанное", "сканы", "signed"]
+    target_fields: {lifecycle_status: "signed", cleanup_category: "keep_review"}
+    weight: 4
+  - rule_id: lifecycle_old_archive_filename
+    tokens: ["архив", "старое", "old", "копия", "copy", "backup", "compressed", "wbk"]
+    target_fields: {lifecycle_status: "old_version", cleanup_category: "archive_review"}
+    weight: 3
+  - rule_id: system_trash_filename
+    tokens: ["Thumbs.db", ".DS_Store", "desktop.ini", "Temp", "Diagnostics", ".lnk", ".tmp", ".wbk"]
+    target_fields: {department_suggestion: "Trash / System / Temporary", function_suggestion: "system_trash", document_family_suggestion: "system_file", document_type_suggestion: "system_file", process_suggestion: "system_cleanup", sensitivity_suggestion: "system_trash", lifecycle_status: "temp_system", cleanup_category: "system_trash_candidate"}
+    weight: 10

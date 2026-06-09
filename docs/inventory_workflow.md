@@ -53,6 +53,8 @@ Secrets:
 
 В этом режиме workflow выполняет только этап `01 metadata map`, принудительно использует `max_files=0`, не читает содержимое и не запускает AI estimate. Главные артефакты: `all_objects.csv`, `inventory.csv`, `folders.csv`, `skipped_google_sheets.csv`, `access_coverage.csv`, `audit_report.md`, `inventory.xlsx`.
 
+Metadata-only режим уже применяет Taxonomy V2 по путям, именам, расширениям, MIME type и служебным признакам. Для разбора состава Drive после такого прогона в первую очередь смотрите `object_classification_summary.csv`, `department_classification_summary.csv`, `document_type_summary.csv`, `sensitivity_summary.csv`, `rule_match_summary.csv`, `unknown_after_v2.csv`, `cleanup_candidates.csv`, `system_trash_candidates.csv` и листы `Classification V2 Summary`, `Objects`, `Departments`, `Document Types`, `Unknown After V2` в `inventory.xlsx`.
+
 ### 2. Ограниченный проверочный прогон
 
 Используйте перед полной классификацией, чтобы проверить credentials, доступы, время выполнения и качество извлечения текста:
@@ -104,9 +106,15 @@ python -m knowledge_ops.drive_inventory \
 - `skipped_google_sheets_ru.csv`
 - `access_coverage.csv`
 - `access_coverage_ru.csv`
+- `rule_match_summary.csv`
+- `object_classification_summary.csv`
+- `department_classification_summary.csv`
+- `document_type_summary.csv`
+- `sensitivity_summary.csv`
+- `unknown_after_v2.csv`
 - первичный `audit_report.md`
 
-Этот этап нужен для ранней диагностики доступа, масштаба и MIME-распределения.
+Этот этап нужен для ранней диагностики доступа, масштаба, MIME-распределения и качества metadata-only классификации. Минимальные метрики для сравнения с первым прогоном: доля `UNKNOWN`, количество `CONFLICT_METADATA`, топ-20 path/filename rules, количество объектов по `object_suggestion`, распределение `cleanup_category`, количество `system_trash_candidate` и файлов с `cloud_analysis_candidate=true`.
 
 ## Этап 02 — content classification
 
@@ -172,6 +180,7 @@ python -m knowledge_ops.drive_inventory \
 - отчеты по точным дублям;
 - кандидаты на версионные и смысловые дубли;
 - sensitivity review;
+- Taxonomy V2 summaries: объекты, подразделения, типы документов, чувствительность, медиа, unknown-after-v2, cleanup/system-trash candidates и rule match summary;
 - migration decision plan как таблица будущих решений, не как план исполнения;
 - `inventory.xlsx`;
 - `audit_report.md`;
