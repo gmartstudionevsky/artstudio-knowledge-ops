@@ -248,6 +248,14 @@ def write_reports(result: InventoryResult, out_dir: str | Path) -> None:
     exact_duplicate_groups = build_exact_duplicate_group_rows(items)
     media_summary = build_summary_rows("media_subtype", (item.media_subtype or item.image_subtype or item.video_subtype or item.audio_subtype or item.design_source_subtype for item in items if item.media_subtype or item.image_subtype or item.video_subtype or item.audio_subtype or item.design_source_subtype))
     unknown_after_v2 = [item for item in items if item.classification_status in {"UNKNOWN", "NEEDS_REVIEW"} or item.combined_confidence in {"unknown", "needs_review"}]
+    v3_review = [item for item in items if item.human_review_queue and item.human_review_queue != "knowledge_base_review"]
+    v3_unknown = [item for item in items if item.classification_status in {"UNKNOWN", "NEEDS_REVIEW"} or item.human_review_queue == "unknown_classification_review"]
+    v3_conflicts = [item for item in items if item.conflict_flags or "content_metadata_conflict" in item.reason]
+    v3_sensitivity = [item for item in items if item.sensitivity_suggestion not in {"", "unknown", "operational", "public_internal"} or item.sensitivity_flags]
+    v3_ocr_candidates = [item for item in items if item.ocr_candidate]
+    v3_cloud_candidates = [item for item in items if item.cloud_analysis_candidate]
+    v3_media = [item for item in items if item.media_subtype or item.image_subtype or item.video_subtype or item.audio_subtype or item.design_source_subtype]
+    human_queue_summary = build_summary_rows("human_review_queue", (item.human_review_queue for item in items))
     rule_performance_rows = result.rule_performance_rows
     zero_hit_rules = [row for row in rule_performance_rows if row.get("is_zero_hit") == "true"]
     slow_rules = [row for row in rule_performance_rows if row.get("is_slow_candidate") == "true"]
@@ -297,6 +305,27 @@ def write_reports(result: InventoryResult, out_dir: str | Path) -> None:
     write_csv(output / "exact_duplicate_groups.csv", EXACT_DUPLICATE_GROUP_COLUMNS, exact_duplicate_groups)
     write_csv(output / "media_classification_summary.csv", SUMMARY_COLUMNS, media_summary)
     write_csv(output / "unknown_after_v2.csv", INVENTORY_COLUMNS, (item.to_row() for item in unknown_after_v2))
+    write_csv(output / "classification_v3_inventory.csv", INVENTORY_COLUMNS, (item.to_row() for item in items))
+    write_csv(output / "classification_v3_review.csv", INVENTORY_COLUMNS, (item.to_row() for item in v3_review))
+    write_csv(output / "classification_v3_unknown.csv", INVENTORY_COLUMNS, (item.to_row() for item in v3_unknown))
+    write_csv(output / "classification_v3_conflicts.csv", INVENTORY_COLUMNS, (item.to_row() for item in v3_conflicts))
+    write_csv(output / "classification_v3_sensitivity.csv", INVENTORY_COLUMNS, (item.to_row() for item in v3_sensitivity))
+    write_csv(output / "classification_v3_ocr_candidates.csv", INVENTORY_COLUMNS, (item.to_row() for item in v3_ocr_candidates))
+    write_csv(output / "classification_v3_cloud_ai_candidates.csv", INVENTORY_COLUMNS, (item.to_row() for item in v3_cloud_candidates))
+    write_csv(output / "classification_v3_duplicate_groups.csv", EXACT_DUPLICATE_GROUP_COLUMNS, exact_duplicate_groups)
+    write_csv(output / "classification_v3_media.csv", INVENTORY_COLUMNS, (item.to_row() for item in v3_media))
+    write_csv(output / "classification_v3_human_review_queues.csv", SUMMARY_COLUMNS, human_queue_summary)
+    write_classification_v3_reports(
+        output,
+        result,
+        items,
+        rule_summary,
+        human_queue_summary,
+        v3_unknown,
+        v3_conflicts,
+        v3_ocr_candidates,
+        v3_cloud_candidates,
+    )
     write_csv(output / "rule_performance.csv", RULE_PERFORMANCE_COLUMNS, rule_performance_rows)
     write_localized_csv(output / "rule_performance_ru.csv", RULE_PERFORMANCE_COLUMNS, rule_performance_rows)
     write_csv(output / "zero_hit_rules.csv", RULE_PERFORMANCE_COLUMNS, zero_hit_rules)
@@ -334,6 +363,10 @@ def write_reports(result: InventoryResult, out_dir: str | Path) -> None:
         unknown_after_v2,
         rule_performance_rows,
         quality_rows,
+        human_queue_summary,
+        v3_ocr_candidates,
+        v3_cloud_candidates,
+        v3_conflicts,
     )
 
 
@@ -498,6 +531,86 @@ def write_performance_reports(output: Path, result: InventoryResult, rule_rows: 
     for row in quality_rows:
         quality_lines.append(f"- {row['metric']}: {row['value']} ({row['notes']})")
     (output / "classification_quality_summary.md").write_text("\n".join(quality_lines) + "\n", encoding="utf-8")
+
+
+def write_classification_v3_reports(
+    output: Path,
+    result: InventoryResult,
+    items: List[DriveInventoryItem],
+    rule_summary: List[Dict[str, str]],
+    human_queue_summary: List[Dict[str, str]],
+    unknown: List[DriveInventoryItem],
+    conflicts: List[DriveInventoryItem],
+    ocr_candidates: List[DriveInventoryItem],
+    cloud_candidates: List[DriveInventoryItem],
+) -> None:
+    total = max(1, len(items))
+    lines = [
+        "# Classification V3 Report",
+        "",
+        f"- Total files: {len(items)}",
+        f"- Classified count: {sum(1 for item in items if item.classification_status not in {'UNKNOWN', 'NEEDS_REVIEW'})}",
+        f"- Unknown count: {len(unknown)}",
+        f"- Unknown rate: {round(len(unknown) / total * 100, 2)}%",
+        f"- OCR candidate count: {len(ocr_candidates)}",
+        f"- Cloud AI candidate count: {len(cloud_candidates)}",
+        f"- Conflict count: {len(conflicts)}",
+        "",
+        "## Object Distribution",
+        counter_section("Objects", Counter(item.object_suggestion for item in items)),
+        "## Department Distribution",
+        counter_section("Departments", Counter(item.department_suggestion for item in items)),
+        "## Document Type Distribution",
+        counter_section("Document types", Counter(item.document_type_suggestion for item in items)),
+        "## Sensitivity Distribution",
+        counter_section("Sensitivity", Counter(item.sensitivity_suggestion for item in items)),
+        "## Lifecycle Distribution",
+        counter_section("Lifecycle", Counter(item.lifecycle_status for item in items)),
+        "## Cleanup Distribution",
+        counter_section("Cleanup", Counter(item.cleanup_category for item in items)),
+        "## Human Review Queues",
+    ]
+    lines.extend(f"- {row['value']}: {row['count']}" for row in human_queue_summary)
+    lines.extend(
+        [
+            "",
+            "## Top Rules",
+            counter_section("Rule matches", Counter({row["rule_id"]: int(row["count"]) for row in rule_summary})),
+            "",
+            "## Recommendations",
+            "- Review unknown and conflict CSV files before changing rules.",
+            "- Use OCR candidates as a queue only; OCR is not executed by default.",
+            "- Use cloud AI candidates as approval planning only; cloud calls are disabled by default.",
+        ]
+    )
+    (output / "classification_v3_report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    ocr_lines = [
+        "# OCR Readiness Report",
+        "",
+        f"- OCR candidates: {len(ocr_candidates)}",
+        f"- Sensitive OCR candidates requiring review: {sum(1 for item in ocr_candidates if item.ocr_requires_manual_review)}",
+        "- OCR is not executed unless explicit config/CLI flags enable it.",
+    ]
+    (output / "OCR_readiness_report.md").write_text("\n".join(ocr_lines) + "\n", encoding="utf-8")
+
+    cloud_lines = [
+        "# Cloud AI Approval Report",
+        "",
+        f"- Cloud AI candidates: {len(cloud_candidates)}",
+        f"- Approval required: {sum(1 for item in cloud_candidates if item.cloud_analysis_approval_required)}",
+        "- Cloud Vision / Document AI / Video Intelligence / Speech-to-Text calls are disabled by default.",
+    ]
+    (output / "cloud_ai_approval_report.md").write_text("\n".join(cloud_lines) + "\n", encoding="utf-8")
+
+    guide_lines = [
+        "# Human Review Guide",
+        "",
+        "Queues are recommendations for manual review, not Drive actions.",
+        "",
+    ]
+    guide_lines.extend(f"- {row['value']}: {row['count']}" for row in human_queue_summary)
+    (output / "human_review_guide.md").write_text("\n".join(guide_lines) + "\n", encoding="utf-8")
 
 
 def build_exact_duplicate_group_rows(items: List[DriveInventoryItem]) -> List[Dict[str, str]]:
@@ -730,6 +843,10 @@ def write_excel(
     unknown_after_v2: List[DriveInventoryItem],
     rule_performance_rows: List[Dict[str, str]],
     quality_rows: List[Dict[str, str]],
+    human_queue_summary: List[Dict[str, str]],
+    v3_ocr_candidates: List[DriveInventoryItem],
+    v3_cloud_candidates: List[DriveInventoryItem],
+    v3_conflicts: List[DriveInventoryItem],
 ) -> None:
     wb = Workbook()
     summary = wb.active
@@ -759,6 +876,10 @@ def write_excel(
     add_sheet(wb, "System Trash", INVENTORY_COLUMNS, [item.to_row() for item in system_trash_candidates])
     add_sheet(wb, "Media", SUMMARY_COLUMNS, media_summary)
     add_sheet(wb, "Unknown After V2", INVENTORY_COLUMNS, [item.to_row() for item in unknown_after_v2])
+    add_sheet(wb, "Human Review Queues", SUMMARY_COLUMNS, human_queue_summary)
+    add_sheet(wb, "OCR Candidates", INVENTORY_COLUMNS, [item.to_row() for item in v3_ocr_candidates])
+    add_sheet(wb, "Cloud AI Candidates", INVENTORY_COLUMNS, [item.to_row() for item in v3_cloud_candidates])
+    add_sheet(wb, "Conflicts", INVENTORY_COLUMNS, [item.to_row() for item in v3_conflicts])
     add_sheet(wb, "Rule Matches", RULE_SUMMARY_COLUMNS, rule_summary)
     add_sheet(wb, "Rule Performance", RULE_PERFORMANCE_COLUMNS, rule_performance_rows)
     add_sheet(wb, "Quality Summary", QUALITY_SUMMARY_COLUMNS, quality_rows)
