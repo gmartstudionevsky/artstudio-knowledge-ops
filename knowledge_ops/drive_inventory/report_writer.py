@@ -42,6 +42,94 @@ CONTENT_INSPECTION_COLUMNS = [
 ]
 CONTENT_RULE_MATCH_COLUMNS = ["file_id", "name", "full_path", "rule_id", "category", "classification_reason"]
 CONTENT_SENSITIVITY_COLUMNS = ["file_id", "name", "full_path", "sensitivity_flag", "sensitivity_suggestion", "action_recommendation"]
+
+RU_HEADERS = {
+    "file_id": "ID файла",
+    "name": "Название",
+    "normalized_name": "Нормализованное название",
+    "mime_type": "MIME-тип",
+    "object_kind": "Тип объекта",
+    "extension": "Расширение",
+    "size": "Размер",
+    "md5_checksum": "MD5 checksum",
+    "content_hash": "Хеш содержимого",
+    "export_hash": "Хеш экспорта",
+    "image_perceptual_hash": "Перцептивный хеш изображения",
+    "web_view_link": "Ссылка Drive",
+    "created_time": "Дата создания",
+    "modified_time": "Дата изменения",
+    "viewed_by_me_time": "Дата просмотра service account",
+    "owners": "Владельцы",
+    "last_modifying_user": "Последний изменивший пользователь",
+    "parents": "Родительские папки",
+    "full_path": "Полный путь",
+    "depth": "Глубина",
+    "drive_id": "ID диска",
+    "shared_drive_name": "Название shared drive",
+    "trashed": "В корзине",
+    "starred": "Помечен звездой",
+    "shared": "Общий доступ",
+    "permissions_summary": "Кратко о правах",
+    "is_google_workspace_native": "Google Workspace native",
+    "is_google_sheet_skipped": "Google Sheets пропущен",
+    "skip_reason": "Причина пропуска",
+    "object_suggestion": "Предложенный объект",
+    "department_suggestion": "Предложенное подразделение",
+    "function_suggestion": "Предложенный функциональный блок",
+    "document_family_suggestion": "Семейство документа",
+    "document_type_suggestion": "Тип документа",
+    "process_suggestion": "Процесс / тема",
+    "audience_suggestion": "Аудитория",
+    "sensitivity_suggestion": "Чувствительность / риск",
+    "retention_suggestion": "Предложение по хранению",
+    "duplicate_group_id": "Группа дублей",
+    "duplicate_kind": "Тип дубля",
+    "canonical_candidate_id": "Кандидат в канон",
+    "action_recommendation": "Рекомендация",
+    "confidence": "Уверенность",
+    "reason": "Причина разметки",
+    "human_decision": "Решение человека",
+    "final_location": "Итоговое размещение",
+    "comment": "Комментарий",
+    "file_count": "Количество файлов",
+    "subfolder_count": "Количество подпапок",
+    "top_mime_types": "Основные MIME-типы",
+    "chaos_signals": "Признаки хаоса",
+    "content_inspection_enabled": "Content inspection включен",
+    "content_extracted": "Текст извлечен",
+    "content_extract_status": "Статус извлечения",
+    "content_extract_error": "Ошибка извлечения",
+    "content_length": "Длина извлеченного текста",
+    "content_text_hash": "Хеш извлеченного текста",
+    "content_language_guess": "Предполагаемый язык",
+    "content_rule_matches": "Сработавшие правила",
+    "content_regex_matches_count": "Количество regex-срабатываний",
+    "content_classification_boost": "Усиление классификации содержимым",
+    "content_sensitivity_flags": "Флаги чувствительности по содержимому",
+    "content_based_document_type": "Тип документа по содержимому",
+    "content_based_department": "Подразделение по содержимому",
+    "content_based_process": "Процесс по содержимому",
+    "content_based_object": "Объект по содержимому",
+    "content_based_audience": "Аудитория по содержимому",
+    "content_based_confidence": "Уверенность по содержимому",
+    "content_based_reason": "Причина по содержимому",
+    "rule_id": "ID правила",
+    "category": "Категория",
+    "classification_reason": "Причина классификации",
+    "sensitivity_flag": "Флаг чувствительности",
+    "error": "Ошибка",
+    "current_path": "Текущий путь",
+    "suggested_object": "Предложенный объект",
+    "suggested_department": "Предложенное подразделение",
+    "suggested_document_type": "Предложенный тип документа",
+    "suggested_process": "Предложенный процесс",
+    "sensitivity": "Чувствительность",
+    "preliminary_action": "Предварительное действие",
+    "future_target_area": "Будущая укрупненная зона",
+    "approved_by": "Кем утверждено",
+    "approved_at": "Дата утверждения",
+    "execution_status": "Статус исполнения",
+}
 MIGRATION_COLUMNS = [
     "file_id",
     "current_path",
@@ -79,18 +167,31 @@ def write_reports(result: InventoryResult, out_dir: str | Path) -> None:
     migration_rows = build_migration_plan(items)
 
     write_csv(output / "inventory.csv", INVENTORY_COLUMNS, (item.to_row() for item in items))
+    write_localized_csv(output / "inventory_ru.csv", INVENTORY_COLUMNS, (item.to_row() for item in items))
     write_csv(output / "folders.csv", FOLDER_COLUMNS, folders)
+    write_localized_csv(output / "folders_ru.csv", FOLDER_COLUMNS, folders)
     write_csv(output / "skipped_google_sheets.csv", INVENTORY_COLUMNS, (item.to_row() for item in result.skipped_google_sheets))
+    write_localized_csv(output / "skipped_google_sheets_ru.csv", INVENTORY_COLUMNS, (item.to_row() for item in result.skipped_google_sheets))
     write_csv(output / "exact_duplicates.csv", INVENTORY_COLUMNS, (item.to_row() for item in exact))
+    write_localized_csv(output / "exact_duplicates_ru.csv", INVENTORY_COLUMNS, (item.to_row() for item in exact))
     write_csv(output / "version_duplicate_candidates.csv", INVENTORY_COLUMNS, (item.to_row() for item in version))
+    write_localized_csv(output / "version_duplicate_candidates_ru.csv", INVENTORY_COLUMNS, (item.to_row() for item in version))
     write_csv(output / "semantic_duplicate_candidates.csv", INVENTORY_COLUMNS, (item.to_row() for item in semantic))
+    write_localized_csv(output / "semantic_duplicate_candidates_ru.csv", INVENTORY_COLUMNS, (item.to_row() for item in semantic))
     write_csv(output / "classification_review.csv", INVENTORY_COLUMNS, (item.to_row() for item in classification_review))
+    write_localized_csv(output / "classification_review_ru.csv", INVENTORY_COLUMNS, (item.to_row() for item in classification_review))
     write_csv(output / "sensitivity_review.csv", INVENTORY_COLUMNS, (item.to_row() for item in sensitivity_review))
+    write_localized_csv(output / "sensitivity_review_ru.csv", INVENTORY_COLUMNS, (item.to_row() for item in sensitivity_review))
     write_csv(output / "migration_decision_plan.csv", MIGRATION_COLUMNS, migration_rows)
+    write_localized_csv(output / "migration_decision_plan_ru.csv", MIGRATION_COLUMNS, migration_rows)
     write_csv(output / "content_inspection.csv", CONTENT_INSPECTION_COLUMNS, content_inspection_rows(result.items))
+    write_localized_csv(output / "content_inspection_ru.csv", CONTENT_INSPECTION_COLUMNS, content_inspection_rows(result.items))
     write_csv(output / "content_rule_matches.csv", CONTENT_RULE_MATCH_COLUMNS, content_rule_match_rows(result.items))
+    write_localized_csv(output / "content_rule_matches_ru.csv", CONTENT_RULE_MATCH_COLUMNS, content_rule_match_rows(result.items))
     write_csv(output / "content_sensitivity_flags.csv", CONTENT_SENSITIVITY_COLUMNS, content_sensitivity_rows(result.items))
+    write_localized_csv(output / "content_sensitivity_flags_ru.csv", CONTENT_SENSITIVITY_COLUMNS, content_sensitivity_rows(result.items))
     write_csv(output / "errors.csv", ERROR_COLUMNS, result.errors)
+    write_localized_csv(output / "errors_ru.csv", ERROR_COLUMNS, result.errors)
     write_tree(output / "drive_structure_tree.md", folders)
     write_audit_report(output / "audit_report.md", result, folders, exact, version, semantic, sensitivity_review)
     write_excel(
@@ -113,6 +214,15 @@ def write_csv(path: Path, columns: List[str], rows: Iterable[Dict[str, object]])
         writer.writeheader()
         for row in rows:
             writer.writerow(row)
+
+
+def write_localized_csv(path: Path, columns: List[str], rows: Iterable[Dict[str, object]]) -> None:
+    localized_columns = [RU_HEADERS.get(column, column) for column in columns]
+    with path.open("w", encoding="utf-8-sig", newline="") as fh:
+        writer = csv.DictWriter(fh, fieldnames=localized_columns, extrasaction="ignore")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({RU_HEADERS.get(column, column): row.get(column, "") for column in columns})
 
 
 def build_migration_plan(items: List[DriveInventoryItem]) -> List[Dict[str, str]]:
@@ -208,12 +318,12 @@ def future_target_area(item: DriveInventoryItem) -> str:
 
 
 def write_tree(path: Path, folders: List[Dict[str, str]]) -> None:
-    lines = ["# Drive structure tree", ""]
+    lines = ["# Дерево текущей структуры Drive", ""]
     for row in folders:
         indent = "  " * max(0, int(row["depth"]))
         lines.append(
-            f"{indent}- {row['name']} | files={row['file_count']} | folders={row['subfolder_count']} | "
-            f"depth={row['depth']} | types={row['top_mime_types'] or 'n/a'} | signals={row['chaos_signals'] or 'none'}"
+            f"{indent}- {row['name']} | файлов={row['file_count']} | подпапок={row['subfolder_count']} | "
+            f"глубина={row['depth']} | типы={row['top_mime_types'] or 'n/a'} | сигналы={row['chaos_signals'] or 'нет'}"
         )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
@@ -230,61 +340,61 @@ def write_audit_report(
     items = [item for item in result.items if not item.is_google_sheet_skipped]
     files = [item for item in items if item.object_kind == "file"]
     lines = [
-        "# Drive inventory audit report",
+        "# Отчет по инвентаризации Google Drive",
         "",
-        f"- Run started: {result.started_at}",
-        f"- Drive scope: {result.scope}",
-        f"- Mode: {result.mode}",
-        f"- Total objects listed: {len(result.items)}",
-        f"- Folders: {len([item for item in result.items if item.object_kind == 'folder'])}",
-        f"- Files inventoried: {len(files)}",
-        f"- Google Sheets skipped: {len(result.skipped_google_sheets)}",
-        f"- Content inspection attempted: {sum(1 for item in result.items if item.content_inspection_enabled)}",
-        f"- Content successfully extracted: {sum(1 for item in result.items if item.content_extracted)}",
-        f"- Content skipped by type/policy: {sum(1 for item in result.items if item.content_extract_status.startswith('skipped') or item.content_extract_status in {'unsupported_type', 'unsupported_legacy_binary', 'archive_metadata_only', 'ocr_disabled'})}",
-        f"- Content skipped by size: {sum(1 for item in result.items if 'file_too_large' in item.content_extract_error or item.content_extract_status == 'skipped_too_large')}",
-        f"- Content extraction errors: {sum(1 for item in result.items if item.content_extract_status == 'extract_error')}",
+        f"- Дата и время запуска: {result.started_at}",
+        f"- Область Drive: {result.scope}",
+        f"- Режим: {result.mode}",
+        f"- Всего объектов в листинге: {len(result.items)}",
+        f"- Папок: {len([item for item in result.items if item.object_kind == 'folder'])}",
+        f"- Файлов в реестре: {len(files)}",
+        f"- Google Sheets пропущено: {len(result.skipped_google_sheets)}",
+        f"- Content inspection попыток: {sum(1 for item in result.items if item.content_inspection_enabled)}",
+        f"- Текст успешно извлечен: {sum(1 for item in result.items if item.content_extracted)}",
+        f"- Пропущено по типу/политике: {sum(1 for item in result.items if item.content_extract_status.startswith('skipped') or item.content_extract_status in {'unsupported_type', 'unsupported_legacy_binary', 'archive_metadata_only', 'ocr_disabled'})}",
+        f"- Пропущено по размеру: {sum(1 for item in result.items if 'file_too_large' in item.content_extract_error or item.content_extract_status == 'skipped_too_large')}",
+        f"- Ошибок извлечения текста: {sum(1 for item in result.items if item.content_extract_status == 'extract_error')}",
         "",
-        "## Distributions",
-        counter_section("Mime types", Counter(item.mime_type for item in files)),
-        counter_section("Extensions", Counter(item.extension or "(none)" for item in files)),
-        counter_section("Objects", Counter(item.object_suggestion for item in files)),
-        counter_section("Departments", Counter(item.department_suggestion for item in files)),
-        counter_section("Document types", Counter(item.document_type_suggestion for item in files)),
-        counter_section("Sensitivity", Counter(item.sensitivity_suggestion for item in files)),
-        counter_section("Content-based document types", Counter(item.content_based_document_type for item in files if item.content_based_document_type)),
-        counter_section("Content sensitivity flags", Counter(flag for item in files for flag in item.content_sensitivity_flags.split(";") if flag)),
+        "## Распределения",
+        counter_section("MIME-типы", Counter(item.mime_type for item in files)),
+        counter_section("Расширения", Counter(item.extension or "(нет)" for item in files)),
+        counter_section("Объекты", Counter(item.object_suggestion for item in files)),
+        counter_section("Подразделения", Counter(item.department_suggestion for item in files)),
+        counter_section("Типы документов", Counter(item.document_type_suggestion for item in files)),
+        counter_section("Чувствительность", Counter(item.sensitivity_suggestion for item in files)),
+        counter_section("Типы документов по содержимому", Counter(item.content_based_document_type for item in files if item.content_based_document_type)),
+        counter_section("Флаги чувствительности по содержимому", Counter(flag for item in files for flag in item.content_sensitivity_flags.split(";") if flag)),
         "",
-        "## Folder hotspots",
+        "## Папки с высокой плотностью файлов",
     ]
     for row in sorted(folders, key=lambda item: int(item["file_count"]), reverse=True)[:20]:
-        lines.append(f"- {row['full_path']}: files={row['file_count']}, folders={row['subfolder_count']}, signals={row['chaos_signals'] or 'none'}")
+        lines.append(f"- {row['full_path']}: файлов={row['file_count']}, подпапок={row['subfolder_count']}, сигналы={row['chaos_signals'] or 'нет'}")
     lines.extend(
         [
             "",
-            "## Duplicate and review queues",
-            f"- Exact duplicate rows: {len(exact)}; groups: {count_groups(exact)}",
-            f"- Version candidate rows: {len(version)}; groups: {count_groups(version)}",
-            f"- Semantic candidate rows: {len(semantic)}; groups: {count_groups(semantic)}",
-            f"- Potentially sensitive rows: {len(sensitivity)}",
-            f"- Unknown document type rows: {sum(1 for item in files if item.document_type_suggestion == 'неизвестно')}",
-            f"- Metadata/content classification conflicts: {sum(1 for item in files if 'content_metadata_conflict' in item.reason)}",
-            f"- Type determined only by content: {sum(1 for item in files if item.content_based_document_type and item.content_based_document_type == item.document_type_suggestion)}",
+            "## Очереди дублей и ручного разбора",
+            f"- Строк точных дублей: {len(exact)}; групп: {count_groups(exact)}",
+            f"- Кандидатов на версионные дубли: {len(version)}; групп: {count_groups(version)}",
+            f"- Кандидатов на смысловые дубли: {len(semantic)}; групп: {count_groups(semantic)}",
+            f"- Потенциально чувствительных строк: {len(sensitivity)}",
+            f"- Неизвестных типов документов: {sum(1 for item in files if item.document_type_suggestion == 'неизвестно')}",
+            f"- Конфликтов metadata/content: {sum(1 for item in files if 'content_metadata_conflict' in item.reason)}",
+            f"- Тип определен только по содержимому: {sum(1 for item in files if item.content_based_document_type and item.content_based_document_type == item.document_type_suggestion)}",
             "",
-            "## Errors and limitations",
-            f"- Errors: {len(result.errors)}",
+            "## Ошибки и ограничения",
+            f"- Ошибок: {len(result.errors)}",
         ]
     )
-    for limitation in result.limitations or ["No destructive Drive operations are implemented in this inventory contour."]:
+    for limitation in result.limitations or ["В контуре инвентаризации нет операций изменения Google Drive."]:
         lines.append(f"- {limitation}")
     lines.extend(
         [
             "",
-            "## Next stage recommendations",
-            "- Review sensitivity_review.csv before any migration decision.",
-            "- Validate exact duplicate groups manually; do not delete in this stage.",
-            "- Use migration_decision_plan.csv as a decision table, not as an execution plan.",
-            "- Run the first real audit with max-files 100, then review output before full inventory.",
+            "## Рекомендации для следующего этапа",
+            "- Сначала разобрать sensitivity_review.csv / sensitivity_review_ru.csv.",
+            "- Проверить группы точных дублей вручную; на этом этапе ничего не удалять.",
+            "- Использовать migration_decision_plan.csv как таблицу решений, а не план исполнения.",
+            "- Полный аудит запускать после проверки ограниченного прогона.",
         ]
     )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")

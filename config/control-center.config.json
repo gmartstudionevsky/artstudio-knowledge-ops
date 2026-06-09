@@ -1,9 +1,0 @@
-{
-  "projectName": "ARTSTUDIO Base",
-  "stage": "Stage 1",
-  "stageName": "Create and seal control center",
-  "dryRunDefault": true,
-  "allowDeleteDefault": false,
-  "executeOnlyAcceptedRows": true,
-  "highRiskRequiresExplicitApproval": true
-}

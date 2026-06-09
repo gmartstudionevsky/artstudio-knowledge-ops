@@ -1,10 +1,10 @@
-# AI Analysis Preparation & Pricing Estimator
+# Подготовка AI-анализа и оценка стоимости
 
 ## Зачем нужен слой
 
-`knowledge_ops.ai_analysis` готовит следующий этап анализа содержимого через Google Cloud AI, но не запускает его. Он читает результаты Drive inventory, определяет пригодность файлов для Cloud Vision AI, Document AI, Video Intelligence и Speech-to-Text, считает billable units и примерную стоимость по сценариям.
+`knowledge_ops.ai_analysis` готовит следующий этап анализа содержимого через Google Cloud AI, но не запускает его. Модуль читает результаты Drive inventory, определяет пригодность файлов для Cloud Vision AI, Document AI, Video Intelligence и Speech-to-Text, считает billable units и примерную стоимость по сценариям.
 
-Сначала нужен estimate, а не cloud analysis, чтобы заранее понять объём, риски, sensitive approval и бюджет.
+Сначала нужен расчет, а не Cloud-анализ: так можно заранее понять объём, риски, чувствительные зоны, необходимость approval и бюджет.
 
 ## Что поддерживается
 
@@ -12,8 +12,8 @@
 - Document AI для PDF, сканов и документов, где нужен OCR/layout.
 - Video Intelligence для видео.
 - Speech-to-Text для аудио и будущей обработки видео с аудиодорожкой.
-- Local-only для дублей, архивов, design sources и файлов, уже хорошо классифицированных локально.
-- Skip для native Google Sheets, exact duplicate non-canonical files, слишком больших файлов и sensitive файлов без approval.
+- Локальный режим для дублей, архивов, design sources и файлов, уже хорошо классифицированных локально.
+- Пропуск native Google Sheets, точных дублей не-канонических экземпляров, слишком больших файлов и sensitive-файлов без approval.
 
 ## Как считается стоимость
 
@@ -21,11 +21,11 @@
 
 Сценарии:
 
-- `metadata_only` - Cloud AI cost = 0.
-- `cheap` - ограниченный OCR/labels.
-- `balanced` - разумный набор Vision/Document AI и выбранные медиа.
-- `deep` - максимально широкий анализ eligible файлов.
-- `custom` - можно описать в routing config.
+- `metadata_only` — стоимость Cloud AI равна 0.
+- `cheap` — ограниченный OCR/labels.
+- `balanced` — разумный набор Vision/Document AI и выбранные медиа.
+- `deep` — максимально широкий анализ eligible-файлов.
+- `custom` — можно описать в routing config.
 
 ## Как запустить
 
@@ -41,7 +41,7 @@ python -m knowledge_ops.ai_analysis \
   --dry-run true
 ```
 
-Config validation:
+Проверка конфигов:
 
 ```bash
 python -m knowledge_ops.ai_analysis \
@@ -51,7 +51,7 @@ python -m knowledge_ops.ai_analysis \
   --dry-run true
 ```
 
-## Outputs
+## Выходные файлы
 
 - `ai_readiness_inventory.csv`
 - `cloud_eligibility.csv`
@@ -69,35 +69,35 @@ python -m knowledge_ops.ai_analysis \
 - `run_log.jsonl`
 - `errors.csv`
 
-## Safeguards
+## Защитные ограничения
 
-- Estimate mode does not call Cloud AI APIs.
-- `AI_ANALYSIS_ALLOW_CLOUD_CALLS=false` by default.
-- Sensitive upload is disabled unless `AI_ANALYSIS_ALLOW_SENSITIVE_UPLOAD=true`.
-- Google Sheets are always skipped.
-- Exact duplicate non-canonical files are excluded.
-- Sensitive HR/legal/owner/financial files require manual approval.
-- Budget guards mark scenarios as `OVER_BUDGET` instead of running analysis.
-- No Drive write operations are implemented.
-- No OCR text, transcripts, thumbnails, keyframes or downloaded files are committed.
+- Estimate mode не вызывает Cloud AI APIs.
+- `AI_ANALYSIS_ALLOW_CLOUD_CALLS=false` по умолчанию.
+- Загрузка чувствительных файлов отключена, если не задано `AI_ANALYSIS_ALLOW_SENSITIVE_UPLOAD=true`.
+- Google Sheets всегда пропускаются.
+- Точные дубли, которые не являются каноническими кандидатами, исключаются.
+- HR/legal/owner/financial файлы требуют ручного approval.
+- Budget guards помечают сценарии как `OVER_BUDGET`, а не запускают анализ.
+- Операции записи в Drive не реализованы.
+- OCR-тексты, transcripts, thumbnails, keyframes и скачанные файлы не коммитятся.
 
-## Google Cloud setup checklist
+## Чек-лист Google Cloud
 
-The estimator writes `cloud_setup_checklist.md`, covering:
+Estimator пишет `cloud_setup_checklist.md`, где перечислены:
 
-- Google Cloud project and billing.
+- Google Cloud project и billing.
 - Cloud Vision API, Document AI API, Video Intelligence API, Speech-to-Text API, Cloud Storage API.
-- Service account IAM and secrets.
-- Optional GCS staging bucket and lifecycle policy.
-- Budget alerts, audit logs and data retention.
-- Manual approval before sample/deep runs.
+- IAM service account и secrets.
+- Опциональный GCS staging bucket и lifecycle policy.
+- Budget alerts, audit logs и data retention.
+- Ручной approval перед sample/deep run.
 
-## Future sample analysis
+## Будущий sample analysis
 
-The current implementation prepares `analyze-sample` as a guarded future mode only. Real Cloud calls must require:
+Текущая реализация только подготавливает guarded future mode `analyze-sample`. Реальные Cloud calls должны требовать:
 
 - `--mode analyze-sample`;
 - `AI_ANALYSIS_ALLOW_CLOUD_CALLS=true`;
-- passed budget guard;
-- explicit sample plan;
-- no sensitive files unless `AI_ANALYSIS_ALLOW_SENSITIVE_UPLOAD=true`.
+- успешный budget guard;
+- явный sample plan;
+- отсутствие sensitive-файлов или `AI_ANALYSIS_ALLOW_SENSITIVE_UPLOAD=true`.

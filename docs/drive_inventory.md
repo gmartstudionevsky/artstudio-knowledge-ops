@@ -79,7 +79,14 @@ python -m knowledge_ops.drive_inventory \
 
 ## GitHub Actions
 
-Workflow `Drive Inventory` запускается только вручную через `workflow_dispatch`. Он использует `GOOGLE_SERVICE_ACCOUNT_JSON`, `GOOGLE_DELEGATED_USER` и отдаёт результат как artifact `drive-inventory-output`. Результаты не коммитятся в репозиторий.
+Workflow `Drive Inventory Pipeline` запускается только вручную через `workflow_dispatch`. Он выполняет инвентаризацию этапами и отдаёт результаты как artifacts:
+
+- `drive-inventory-01-metadata`
+- `drive-inventory-02-content-classification`
+- `drive-inventory-03-final`
+- `drive-inventory-04-ai-readiness`, если включён estimate-only AI readiness
+
+Результаты не коммитятся в репозиторий.
 
 ## Отчёты
 
@@ -87,21 +94,34 @@ Workflow `Drive Inventory` запускается только вручную ч
 
 - `inventory.xlsx`
 - `inventory.csv`
+- `inventory_ru.csv`
 - `folders.csv`
+- `folders_ru.csv`
 - `skipped_google_sheets.csv`
+- `skipped_google_sheets_ru.csv`
 - `exact_duplicates.csv`
+- `exact_duplicates_ru.csv`
 - `version_duplicate_candidates.csv`
+- `version_duplicate_candidates_ru.csv`
 - `semantic_duplicate_candidates.csv`
+- `semantic_duplicate_candidates_ru.csv`
 - `classification_review.csv`
+- `classification_review_ru.csv`
 - `sensitivity_review.csv`
+- `sensitivity_review_ru.csv`
 - `migration_decision_plan.csv`
+- `migration_decision_plan_ru.csv`
 - `content_inspection.csv`
+- `content_inspection_ru.csv`
 - `content_rule_matches.csv`
+- `content_rule_matches_ru.csv`
 - `content_sensitivity_flags.csv`
+- `content_sensitivity_flags_ru.csv`
 - `drive_structure_tree.md`
 - `audit_report.md`
 - `run_log.jsonl`
 - `errors.csv`
+- `errors_ru.csv`
 
 `inventory.xlsx` содержит листы Summary, Inventory, Folders, Skipped Google Sheets, Exact Duplicates, Version Candidates, Semantic Candidates, Classification Review, Sensitivity Review, Migration Decision Plan, Content Inspection, Rule Matches, Content Sensitivity и Errors.
 
