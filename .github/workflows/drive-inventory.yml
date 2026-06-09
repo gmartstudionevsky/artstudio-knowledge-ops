@@ -73,6 +73,10 @@ on:
         description: "Maximum extracted characters used for classification"
         required: true
         default: "20000"
+      content_inspection_max_files:
+        description: "Maximum files to attempt content inspection; 0 means no limit"
+        required: true
+        default: "100"
       content_page_limit:
         description: "Maximum PDF/presentation pages or slides"
         required: true
@@ -140,6 +144,7 @@ jobs:
             --dry-run true
             --safe-mode true
             --enable-content-inspection "${{ github.event.inputs.enable_content_inspection }}"
+            --content-inspection-max-files "${{ github.event.inputs.content_inspection_max_files }}"
             --content-char-limit "${{ github.event.inputs.content_char_limit }}"
             --content-page-limit "${{ github.event.inputs.content_page_limit }}"
             --max-download-size-mb "${{ github.event.inputs.max_download_size_mb }}"

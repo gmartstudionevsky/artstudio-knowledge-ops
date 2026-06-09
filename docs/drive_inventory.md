@@ -54,6 +54,7 @@ python -m knowledge_ops.drive_inventory \
 Опциональные флаги:
 
 - `--enable-content-inspection true` - извлекать ограниченный текстовый слой и применять rule engine.
+- `--content-inspection-max-files 0` - лимит попыток content inspection; `0` означает без лимита, в GitHub Actions по умолчанию используется защитный лимит.
 - `--content-char-limit 20000` - максимум символов текста для классификации.
 - `--content-page-limit 20` - максимум страниц/слайдов для PDF/презентаций.
 - `--max-download-size-mb 25` - максимум размера скачивания для content inspection.

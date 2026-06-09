@@ -8,6 +8,8 @@ from knowledge_ops.drive_inventory.models import SHEETS_MIME, DriveInventoryItem
 from knowledge_ops.drive_inventory.normalizer import normalize_name, split_extension, strip_version_markers
 from knowledge_ops.drive_inventory.report_writer import build_migration_plan
 from knowledge_ops.drive_inventory.safety import ReadOnlySafetyError, assert_read_only_operation, assert_safe_recommendation
+from knowledge_ops.drive_inventory.config import InventoryConfig
+from knowledge_ops.drive_inventory.scanner import DriveInventoryScanner
 
 
 class DriveInventoryNormalizerTest(unittest.TestCase):
@@ -93,6 +95,28 @@ class DriveInventoryMigrationPlanTest(unittest.TestCase):
         rows = build_migration_plan([item])
         self.assertEqual(rows[0]["execution_status"], "not_planned")
         self.assertIn("SOP", rows[0]["future_target_area"])
+
+
+class FakeInventoryClient:
+    def iter_all_accessible(self, max_files=0):
+        return iter([
+            {"id": "1", "name": "one.txt", "mimeType": "text/plain", "size": "3"},
+            {"id": "2", "name": "two.txt", "mimeType": "text/plain", "size": "3"},
+        ])
+
+    def download_bytes(self, file_obj, max_bytes):
+        return b"SOP"
+
+    def export_text(self, file_obj, max_bytes):
+        return "SOP"
+
+
+class DriveInventoryContentLimitTest(unittest.TestCase):
+    def test_content_inspection_limit_marks_remaining_files(self):
+        scanner = DriveInventoryScanner(FakeInventoryClient(), InventoryConfig(content_inspection_max_files=1))
+        result = scanner.scan(scope="all-accessible-drive", mode="full")
+        statuses = [item.content_extract_status for item in result.items]
+        self.assertIn("skipped_content_inspection_limit", statuses)
 
 
 if __name__ == "__main__":

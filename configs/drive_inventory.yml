@@ -9,6 +9,7 @@ drive_inventory:
   include_media_hash: false
   include_perceptual_image_hash: false
   enable_content_inspection: true
+  content_inspection_max_files: 0
   content_char_limit: 20000
   content_page_limit: 20
   max_download_size_mb: 25

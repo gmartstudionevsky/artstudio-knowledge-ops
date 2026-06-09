@@ -15,8 +15,10 @@ from knowledge_ops.drive_inventory.models import SHEETS_MIME, DriveInventoryItem
 class FakeDriveClient:
     def __init__(self, data: bytes):
         self.data = data
+        self.download_calls = 0
 
     def download_bytes(self, file_obj, max_bytes):
+        self.download_calls += 1
         if len(self.data) > max_bytes:
             raise ValueError("file_too_large")
         return self.data
@@ -78,6 +80,14 @@ class ContentInspectionTest(unittest.TestCase):
         result = inspector.inspect(item, {"id": "1", "name": "a.txt", "mimeType": "text/plain", "size": "100"})
         self.assertEqual(result.status, "extract_error")
         self.assertIn("file_too_large", result.error)
+
+    def test_unsupported_type_is_not_downloaded(self):
+        client = FakeDriveClient(b"binary")
+        inspector = ContentInspector(client, InventoryConfig(), ContentRuleEngine([]))
+        item = DriveInventoryItem("1", "video.mp4", "video", "video/mp4", "file", "mp4")
+        result = inspector.inspect(item, {"id": "1", "name": "video.mp4", "mimeType": "video/mp4", "size": "6"})
+        self.assertEqual(result.status, "unsupported_type")
+        self.assertEqual(client.download_calls, 0)
 
 
 if __name__ == "__main__":

@@ -61,6 +61,7 @@ class DriveInventoryScanner:
             self._log(run_log_path, {"event": "listed", "file_id": file_obj.get("id"), "name": file_obj.get("name")})
 
         path_map = build_paths(raw_files)
+        content_inspection_attempts = 0
         for file_obj in raw_files:
             try:
                 base_name, extension = split_extension(file_obj.get("name", ""), file_obj.get("mimeType", ""))
@@ -73,9 +74,20 @@ class DriveInventoryScanner:
                     continue
                 if mode in {"classify", "full"}:
                     classify_item(item)
-                if mode in {"classify", "full"} and self.config.enable_content_inspection:
-                    content_result = self.content_inspector.inspect(item, file_obj)
-                    apply_content_result(item, content_result)
+                if mode in {"classify", "full"} and self.config.enable_content_inspection and item.object_kind == "folder":
+                    item.content_inspection_enabled = True
+                    item.content_extract_status = "skipped_folder"
+                elif mode in {"classify", "full"} and self.config.enable_content_inspection:
+                    if (
+                        self.config.content_inspection_max_files
+                        and content_inspection_attempts >= self.config.content_inspection_max_files
+                    ):
+                        item.content_inspection_enabled = True
+                        item.content_extract_status = "skipped_content_inspection_limit"
+                    else:
+                        content_inspection_attempts += 1
+                        content_result = self.content_inspector.inspect(item, file_obj)
+                        apply_content_result(item, content_result)
                 if mode in {"inventory", "duplicates", "full"}:
                     self._maybe_hash(item, file_obj)
                 result.items.append(item)
