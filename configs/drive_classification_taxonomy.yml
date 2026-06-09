@@ -1,27 +1,26 @@
-taxonomy_version: 2
+taxonomy_version: 3
 objects:
   - ARTSTUDIO Nevsky
   - ARTSTUDIO Moskovsky
   - ARTSTUDIO M103
-  - ARTSTUDIO Network / сеть
+  - ARTSTUDIO Network / сеть ARTSTUDIO
   - RBI PM / УК
   - ApartPremium
   - non_object / general
   - unknown
 departments:
-  - GM / General Management
+  - General Management / GM
   - Управление объектом
-  - Операционное управление
+  - Operations
   - СПиР / Front Office / Reception
   - FOM
-  - Concierge / Concierge Book
+  - Concierge
   - Бронирование / Reservations
   - OTA / электронные каналы
   - TravelLine / TL
   - Fidelio / PMS
-  - Коммерческий отдел
   - Revenue
-  - Pricing / тарифы / ценообразование
+  - Commercial Department
   - Sales / отдел продаж
   - Corporate Sales
   - Marketing
@@ -30,30 +29,85 @@ departments:
   - Content / Photo / Video
   - Owner Relations / отдел по работе с собственниками
   - Договорной контур собственников
+  - Owner Registry
   - Передача / приёмка апартаментов
   - Housekeeping / ХСК / HSK / HSKP
-  - Номерной фонд
   - Engineering / ИТС / техническая служба
+  - Technical Service
   - Security / охрана
   - Fire Safety / пожарная безопасность
-  - IT / системы / доступы
+  - IT / Systems / Access
   - Procurement / закупки
-  - Suppliers / подрядчики
+  - Suppliers / Contractors
   - Warehouse / склад / ТМЦ
   - Finance
   - Accounting / бухгалтерия
   - Cashdesk / касса
   - HR / кадры
-  - Training / обучение / аттестация
+  - Training / аттестация
   - Legal
   - Compliance / обязательные документы
   - Consumer Corner / уголок потребителя
-  - Analytics / отчётность
+  - Analytics / Reporting
+  - Renovation / CapEx / Repairs
   - Project Management
-  - Renovation / CapEx / ремонт
   - Archive
   - Trash / System / Temporary
   - Unknown
+functions:
+  - structured_knowledge_base
+  - old_public_archive
+  - owner_contracts
+  - owner_registry
+  - owner_income_reports
+  - owner_payments
+  - owner_withholdings
+  - owner_communications
+  - owner_acceptance_transfer
+  - owner_technical_maintenance
+  - owner_legal_documents
+  - cadastre_egrn
+  - real_estate_documents
+  - utilities_accounting
+  - ecology_charge_calculation
+  - guest_operations
+  - guest_registration
+  - booking_operations
+  - ota_management
+  - revenue_management
+  - pricing
+  - sales_pipeline
+  - corporate_clients
+  - housekeeping_operations
+  - housekeeping_reporting
+  - room_fund_management
+  - engineering_operations
+  - maintenance_and_repairs
+  - renovation_projects
+  - fire_safety
+  - security_access
+  - IT_systems
+  - procurement_and_suppliers
+  - supplier_management
+  - warehouse_inventory
+  - finance_accounting
+  - cash_documents
+  - HR_documents
+  - staff_schedules
+  - staff_training
+  - SOP_and_standards
+  - brand_assets
+  - marketing_media
+  - SMM_content
+  - photo_archive
+  - video_archive
+  - reporting_and_analytics
+  - official_documents
+  - legal_compliance
+  - chat_export_processing
+  - system_cleanup
+  - duplicate_cleanup
+  - unknown
 document_families:
   - contract
   - act
@@ -82,9 +136,293 @@ document_families:
   - correspondence
   - official_mandatory_document
   - egrn_cadastre_document
+  - real_estate_document
+  - utility_document
   - archive
   - system_file
   - temporary_file
+  - unknown
+document_types:
+  - owner_management_contract
+  - owner_rental_contract
+  - owner_agency_contract
+  - owner_technical_maintenance_contract
+  - rental_contract
+  - agency_contract
+  - technical_maintenance_contract
+  - purchase_sale_contract
+  - DDU
+  - registered_DDU
+  - lease_contract
+  - service_contract
+  - supplier_contract
+  - contractor_contract
+  - corporate_client_contract
+  - addendum
+  - additional_agreement
+  - power_of_attorney
+  - consent
+  - offer
+  - owner_contract_package
+  - owner_acceptance_package
+  - acceptance_transfer_act
+  - return_act
+  - meter_reading_act
+  - service_completion_act
+  - work_completion_act
+  - damage_act
+  - reconciliation_act
+  - inspection_act
+  - defect_act
+  - commissioning_act
+  - apartment_registry
+  - owner_registry
+  - managed_units_registry
+  - room_registry
+  - cadastral_registry
+  - insurance_registry
+  - keys_registry
+  - access_cards_registry
+  - payment_registry
+  - accrual_registry
+  - withholding_registry
+  - utility_registry
+  - report_registry
+  - owner_income_report
+  - owner_payout_report
+  - owner_withholding_schedule
+  - owner_notification
+  - owner_claim
+  - owner_response
+  - owner_EGRN_extract
+  - owner_PIB_document
+  - owner_cadastral_document
+  - cadastral_document
+  - real_estate_registration_document
+  - project_sales_documentation
+  - utility_accrual_registry
+  - utility_receipt_package
+  - ecology_charge_calculation
+  - utility_cache_file
+  - utility_invoice
+  - communal_payment_document
+  - checkin_sop
+  - checkout_sop
+  - guest_registration_instruction
+  - migration_registration_document
+  - guest_rules
+  - guest_memo
+  - guest_card_instruction
+  - keycard_instruction
+  - booking_instruction
+  - overbooking_instruction
+  - complaint_handling_sop
+  - communication_script
+  - concierge_book
+  - OTA_instruction
+  - PMS_instruction
+  - cash_reconciliation
+  - housekeeping_sop
+  - housekeeping_daily_report
+  - housekeeping_contractor_report
+  - cleaning_checklist
+  - room_inspection_checklist
+  - linen_inventory
+  - minibar_checklist
+  - room_set_standard
+  - lost_and_found_document
+  - damage_report
+  - supervisor_checklist
+  - maintenance_schedule
+  - PPR_plan
+  - technical_request
+  - defect_statement
+  - equipment_passport
+  - engineering_scheme
+  - renovation_document
+  - conditioner_document
+  - ventilation_document
+  - electrical_document
+  - plumbing_document
+  - boiler_document
+  - contractor_estimate
+  - work_specification
+  - invoice
+  - invoice_factura
+  - payment_order
+  - receipt
+  - cash_receipt_order
+  - cash_expense_order
+  - UPD
+  - reconciliation_statement
+  - act_sverki
+  - payment_register
+  - debt_report
+  - VAT_document
+  - cost_rebilling
+  - procurement_invoice
+  - advance_payment_receipt
+  - bank_requisites
+  - employment_contract
+  - job_description
+  - staff_schedule
+  - timesheet
+  - vacation_schedule
+  - vacation_request_template
+  - resignation_request_template
+  - salary_card_request_template
+  - tax_deduction_request_template
+  - unpaid_leave_request_template
+  - order
+  - onboarding_material
+  - training_material
+  - attestation_test
+  - employee_personal_data_document
+  - brandbook
+  - logo
+  - signature_image
+  - company_stamp_image
+  - presentation
+  - commercial_presentation
+  - owner_presentation
+  - website_material
+  - OTA_content
+  - photo_shoot
+  - room_photo
+  - public_area_photo
+  - facade_photo
+  - SMM_photo
+  - SMM_video
+  - reels_story
+  - design_mockup
+  - AI_EPS_SVG_source
+  - banner
+  - poster
+  - content_plan
+  - competitor_analysis
+  - consumer_corner_document
+  - certificate
+  - license
+  - mandatory_information
+  - Rospotrebnadzor_document
+  - MCHS_document
+  - fire_safety_instruction
+  - evacuation_plan
+  - security_instruction
+  - claim
+  - complaint
+  - legal_response
+  - protocol
+  - contract_approval_protocol
+  - monthly_report
+  - sales_meeting_report
+  - NPS_report
+  - review_report
+  - analytics_export
+  - revenue_report
+  - occupancy_report
+  - market_analysis
+  - competitor_report
+  - dashboard_export
+  - chat_export_archive
+  - chat_export_photo
+  - chat_export_messages_html
+  - chat_export_metadata_json
+  - chat_thumbnail_image
+  - html_export_asset
+  - email_signature_asset
+  - thumbs_db
+  - ds_store
+  - desktop_ini
+  - office_temp_lock
+  - generated_cache_json
+  - empty_xml
+  - log_file
+  - backup_file
+  - shortcut
+  - unknown_binary
+processes:
+  - check_in
+  - check_out
+  - guest_registration
+  - migration_accounting
+  - booking
+  - OTA_management
+  - guest_communication
+  - complaint_resolution
+  - owner_contracting
+  - owner_acceptance_transfer
+  - owner_income_distribution
+  - owner_withholding
+  - owner_reporting
+  - owner_notifications
+  - technical_maintenance
+  - room_cleaning
+  - room_inspection
+  - room_fund_repair
+  - renovation
+  - procurement
+  - supplier_management
+  - furniture_and_equipment
+  - utilities
+  - ecology_charges
+  - cadastral_data
+  - EGRN
+  - legal_claims
+  - accounting
+  - cash_operations
+  - payroll_or_timesheet
+  - HR_onboarding
+  - staff_training
+  - fire_safety
+  - security_access
+  - marketing_photo
+  - SMM_content
+  - brand_management
+  - revenue_management
+  - pricing
+  - sales
+  - analytics
+  - archive_processing
+  - duplicate_cleanup
+  - system_cleanup
+sensitivity_values:
+  - public_internal
+  - operational
+  - owner_data
+  - owner_contract
+  - guest_data
+  - employee_data
+  - personal_data
+  - personal_data_possible
+  - passport_data
+  - phone_email
+  - cadastral_number
+  - EGRN_sensitive
+  - real_estate_sensitive
+  - legal_contract
+  - legal_sensitive
+  - signature_seal_sensitive
+  - financial
+  - accounting
+  - bank_details
+  - tax_details
+  - HR
+  - commercial
+  - supplier_pricing
+  - security
+  - fire_safety
+  - access_control
+  - technical
+  - brand_sensitive
+  - publication_review_required
+  - people_media
+  - face_possible
+  - gps_metadata_possible
+  - screenshot_sensitive
+  - correspondence_sensitive
+  - sensitive_duplicate
+  - system_trash
   - unknown
 classification_statuses:
   - CLASSIFIED_PATH_HIGH
@@ -105,6 +443,9 @@ lifecycle_statuses:
   - final
   - signed
   - scanned_signed
+  - registered
+  - ready_exported
+  - needs_correction
   - exported_copy
   - backup
   - old_version
@@ -112,22 +453,62 @@ lifecycle_statuses:
   - historical
   - duplicate_candidate
   - exact_duplicate_candidate
+  - final_media_candidate
+  - chat_exported
+  - generated_cache
   - temp_system
   - unknown
 cleanup_categories:
   - keep_review
   - canonical_review
+  - knowledge_base_review
   - archive_review
   - contract_archive_review
   - duplicate_review
+  - sensitive_duplicate_review
   - sensitive_review
+  - sensitive_media_review
   - legal_hold_review
   - owner_contract_review
+  - finance_review
+  - utility_review
+  - HR_review
   - media_review
   - marketing_review
+  - brand_review
   - system_trash_candidate
   - temp_file_candidate
+  - chat_export_review
+  - template_review
   - shortcut_review
   - unknown_review
   - cloud_analysis_candidate
   - skip_google_sheet
+human_review_queues:
+  - legal_review
+  - owner_contract_review
+  - finance_review
+  - HR_review
+  - sensitive_data_review
+  - media_publication_review
+  - brand_review
+  - system_trash_review
+  - duplicate_review
+  - cloud_ai_approval_review
+  - unknown_classification_review
+  - conflict_review
+  - OCR_review
+  - knowledge_base_review
+action_recommendations:
+  - KEEP_AS_IS
+  - REVIEW_REQUIRED
+  - SENSITIVE_REVIEW_REQUIRED
+  - MARK_AS_CANONICAL_CANDIDATE
+  - MARK_AS_ARCHIVE_CANDIDATE
+  - MARK_AS_DUPLICATE_CANDIDATE
+  - MOVE_TO_DUPLICATE_QUARANTINE_LATER
+  - RENAME_RECOMMENDED_LATER
+  - STRUCTURE_REVIEW_LATER
+  - DO_NOT_TOUCH
+  - SKIPPED_GOOGLE_SHEET
+  - UNKNOWN_REVIEW

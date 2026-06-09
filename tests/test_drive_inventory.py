@@ -134,6 +134,35 @@ class DriveInventoryClassifierTest(unittest.TestCase):
             item = self.assert_classifies("/Temp/Diagnostics", name, {"cleanup_category": "system_trash_candidate"})
             self.assertEqual(item.classification_status, "CLASSIFIED_SYSTEM_TRASH")
 
+    def test_v3_extracts_entities_review_queue_and_cloud_approval(self):
+        item = self.assert_classifies(
+            "/ARTSTUDIO Moskovsky/Выписки ЕГРН/апартамент 120",
+            "Договор № АМ-120 ИНН 7812345678 78:12:1234567:10 scan.pdf",
+            {
+                "object_suggestion": "ARTSTUDIO Moskovsky",
+                "human_review_queue": "cloud_ai_approval_review",
+            },
+        )
+        self.assertEqual(item.contract_number_detected, "АМ-120")
+        self.assertEqual(item.INN_detected, "7812345678")
+        self.assertEqual(item.cadastral_number_detected, "78:12:1234567:10")
+        self.assertTrue(item.ocr_candidate)
+        self.assertEqual(item.cloud_analysis_recommended_service, "Document AI")
+        self.assertTrue(item.cloud_analysis_approval_required)
+
+    def test_v3_system_files_get_specific_type(self):
+        item = self.assert_classifies("/Temp", "Thumbs.db", {"document_type_suggestion": "thumbs_db"})
+        self.assertEqual(item.human_review_queue, "system_trash_review")
+
+    def test_v3_signature_seal_is_do_not_touch(self):
+        item = self.assert_classifies("/Legal Files", "Подпись&Печать.png", {"sensitivity_suggestion": "signature_seal_sensitive"})
+        self.assertEqual(item.action_recommendation, "DO_NOT_TOUCH")
+        self.assertTrue(item.cloud_analysis_approval_required)
+
+    def test_v3_utility_rule_does_not_steal_regular_receipt(self):
+        item = self.assert_classifies("/ARTSTUDIO Nevsky/Рабочая папка", "квитанции на аванс.pdf", {"document_type_suggestion": "invoice"})
+        self.assertNotEqual(item.document_type_suggestion, "utility_receipt_package")
+
     def test_indexed_engine_matches_full_scan_for_v2_examples(self):
         indexed_config = InventoryConfig(classification_use_rule_index=True, classification_strict_full_scan=False)
         full_config = InventoryConfig(classification_use_rule_index=False, classification_strict_full_scan=True)
@@ -196,6 +225,17 @@ class DriveInventoryDuplicateTest(unittest.TestCase):
         self.assertEqual(first.duplicate_kind, "exact")
         self.assertTrue(first.canonical_candidate_id)
 
+    def test_sensitive_exact_duplicates_go_to_sensitive_review(self):
+        first = DriveInventoryItem("1", "contract.pdf", "contract", "application/pdf", "file", "pdf", 10, "same")
+        second = DriveInventoryItem("2", "copy contract.pdf", "copy contract", "application/pdf", "file", "pdf", 10, "same")
+        first.sensitivity_suggestion = "owner_contract"
+        second.sensitivity_suggestion = "owner_contract"
+        mark_exact_duplicates([first, second])
+        duplicate = second if second.file_id != second.canonical_candidate_id else first
+        self.assertEqual(duplicate.cleanup_category, "sensitive_duplicate_review")
+        self.assertEqual(duplicate.human_review_queue, "sensitive_data_review")
+        self.assertEqual(duplicate.action_recommendation, "SENSITIVE_REVIEW_REQUIRED")
+
     def test_version_candidates_by_normalized_name(self):
         first = DriveInventoryItem("1", "Регламент СПиР v1.docx", "регламент спир v1", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "file", "docx")
         second = DriveInventoryItem("2", "Регламент СПиР финал.docx", "регламент спир финал", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "file", "docx")
@@ -237,6 +277,12 @@ class DriveInventoryMigrationPlanTest(unittest.TestCase):
             self.assertTrue((Path(tmp) / "zero_hit_rules.csv").exists())
             self.assertTrue((Path(tmp) / "slow_rules.csv").exists())
             self.assertTrue((Path(tmp) / "classification_quality_summary.csv").exists())
+            self.assertTrue((Path(tmp) / "classification_v3_inventory.csv").exists())
+            self.assertTrue((Path(tmp) / "classification_v3_review.csv").exists())
+            self.assertTrue((Path(tmp) / "classification_v3_ocr_candidates.csv").exists())
+            self.assertTrue((Path(tmp) / "classification_v3_cloud_ai_candidates.csv").exists())
+            self.assertTrue((Path(tmp) / "classification_v3_report.md").exists())
+            self.assertTrue((Path(tmp) / "human_review_guide.md").exists())
 
 
 class FakeInventoryClient:

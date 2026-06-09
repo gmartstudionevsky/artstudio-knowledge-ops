@@ -1,4 +1,56 @@
 rules:
+  - rule_id: utility_receipts_filename
+    tokens: ["КУ", "Квитанции КУ", "Реестр КУ", "коммунальные квитанции"]
+    target_fields: {department_suggestion: "Finance", function_suggestion: "utilities_accounting", document_family_suggestion: "utility_document", document_type_suggestion: "utility_receipt_package", process_suggestion: "utilities", sensitivity_suggestion: "financial", cleanup_category: "utility_review"}
+    weight: 7
+  - rule_id: utility_accrual_filename
+    tokens: ["Начисления КУ", "начисления коммунальных", "utility accrual"]
+    target_fields: {department_suggestion: "Finance", function_suggestion: "utilities_accounting", document_family_suggestion: "utility_document", document_type_suggestion: "utility_accrual_registry", process_suggestion: "utilities", sensitivity_suggestion: "financial", cleanup_category: "utility_review"}
+    weight: 7
+  - rule_id: ecology_charge_filename
+    tokens: ["Экология", "экологический сбор", "ecology"]
+    target_fields: {department_suggestion: "Finance", function_suggestion: "ecology_charge_calculation", document_family_suggestion: "utility_document", document_type_suggestion: "ecology_charge_calculation", process_suggestion: "ecology_charges", sensitivity_suggestion: "financial", cleanup_category: "utility_review"}
+    weight: 7
+  - rule_id: signature_seal_filename
+    tokens: ["Подпись&Печать", "подпись", "печать", "signature", "stamp"]
+    target_fields: {department_suggestion: "Legal", function_suggestion: "official_documents", document_family_suggestion: "brand_asset", document_type_suggestion: "signature_image", sensitivity_suggestion: "signature_seal_sensitive", cleanup_category: "legal_hold_review", action_recommendation: "DO_NOT_TOUCH"}
+    weight: 9
+  - rule_id: chat_export_filename
+    tokens: ["ChatExport", "messages.html", "result.json", "_thumb.jpg", "thumb.jpg"]
+    target_fields: {function_suggestion: "chat_export_processing", document_family_suggestion: "archive", document_type_suggestion: "chat_export_archive", process_suggestion: "archive_processing", lifecycle_status: "chat_exported", cleanup_category: "chat_export_review"}
+    weight: 7
+  - rule_id: thumbs_db_filename
+    tokens: ["Thumbs.db"]
+    target_fields: {department_suggestion: "Trash / System / Temporary", function_suggestion: "system_cleanup", document_family_suggestion: "system_file", document_type_suggestion: "thumbs_db", process_suggestion: "system_cleanup", sensitivity_suggestion: "system_trash", lifecycle_status: "temp_system", cleanup_category: "system_trash_candidate"}
+    weight: 12
+  - rule_id: ds_store_filename
+    tokens: [".DS_Store"]
+    target_fields: {department_suggestion: "Trash / System / Temporary", function_suggestion: "system_cleanup", document_family_suggestion: "system_file", document_type_suggestion: "ds_store", process_suggestion: "system_cleanup", sensitivity_suggestion: "system_trash", lifecycle_status: "temp_system", cleanup_category: "system_trash_candidate"}
+    weight: 12
+  - rule_id: desktop_ini_filename
+    tokens: ["desktop.ini"]
+    target_fields: {department_suggestion: "Trash / System / Temporary", function_suggestion: "system_cleanup", document_family_suggestion: "system_file", document_type_suggestion: "desktop_ini", process_suggestion: "system_cleanup", sensitivity_suggestion: "system_trash", lifecycle_status: "temp_system", cleanup_category: "system_trash_candidate"}
+    weight: 12
+  - rule_id: office_temp_lock_filename
+    tokens: ["~$"]
+    target_fields: {department_suggestion: "Trash / System / Temporary", function_suggestion: "system_cleanup", document_family_suggestion: "temporary_file", document_type_suggestion: "office_temp_lock", process_suggestion: "system_cleanup", sensitivity_suggestion: "system_trash", lifecycle_status: "temp_system", cleanup_category: "system_trash_candidate"}
+    weight: 12
+  - rule_id: hr_request_templates_filename
+    tokens: ["заявление на отпуск", "заявление на увольнение", "вычет", "без сохранения", "зарплатная карта"]
+    target_fields: {department_suggestion: "HR / кадры", function_suggestion: "HR_documents", document_family_suggestion: "template", document_type_suggestion: "vacation_request_template", process_suggestion: "HR_onboarding", sensitivity_suggestion: "HR", cleanup_category: "HR_review"}
+    weight: 6
+  - rule_id: engineering_ppr_filename
+    tokens: ["ППР", "план ППР"]
+    target_fields: {department_suggestion: "Engineering / ИТС / техническая служба", function_suggestion: "engineering_operations", document_family_suggestion: "technical_document", document_type_suggestion: "PPR_plan", process_suggestion: "technical_maintenance", sensitivity_suggestion: "technical"}
+    weight: 7
+  - rule_id: engineering_defect_filename
+    tokens: ["дефектная ведомость", "дефектовка"]
+    target_fields: {department_suggestion: "Engineering / ИТС / техническая служба", function_suggestion: "maintenance_and_repairs", document_family_suggestion: "technical_document", document_type_suggestion: "defect_statement", process_suggestion: "room_fund_repair", sensitivity_suggestion: "technical"}
+    weight: 7
+  - rule_id: finance_cash_order_filename
+    tokens: ["РКО", "расходный кассовый ордер"]
+    target_fields: {department_suggestion: "Cashdesk / касса", function_suggestion: "cash_documents", document_family_suggestion: "financial_document", document_type_suggestion: "cash_expense_order", process_suggestion: "cash_operations", sensitivity_suggestion: "financial"}
+    weight: 7
   - rule_id: owner_contract_filename
     tokens: ["договор собственника", "договор с собственником", "договоры собственников", "собственника"]
     target_fields: {document_family_suggestion: "contract", document_type_suggestion: "owner_management_contract", function_suggestion: "owner_contracts", process_suggestion: "owner_contracting", sensitivity_suggestion: "owner_contract", cleanup_category: "owner_contract_review"}

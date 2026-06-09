@@ -69,16 +69,27 @@ FAMILY_BY_TYPE = {
     "owner_payout_report": "owner_document",
     "owner_EGRN_extract": "egrn_cadastre_document",
     "owner_PIB_document": "egrn_cadastre_document",
+    "owner_cadastral_document": "egrn_cadastre_document",
+    "cadastral_document": "egrn_cadastre_document",
+    "utility_receipt_package": "utility_document",
+    "utility_accrual_registry": "utility_document",
+    "ecology_charge_calculation": "utility_document",
+    "utility_cache_file": "utility_document",
     "invoice": "financial_document",
     "invoice_factura": "accounting_document",
     "payment_order": "financial_document",
     "receipt": "financial_document",
     "UPD": "accounting_document",
+    "cash_expense_order": "financial_document",
+    "cash_receipt_order": "financial_document",
+    "reconciliation_statement": "accounting_document",
     "timesheet": "HR_document",
     "employment_contract": "HR_document",
     "job_description": "HR_document",
     "brandbook": "brand_asset",
     "logo": "brand_asset",
+    "signature_image": "brand_asset",
+    "company_stamp_image": "brand_asset",
     "SMM_photo": "photo_asset",
     "SMM_video": "video_asset",
     "room_photo": "photo_asset",
@@ -91,6 +102,15 @@ FAMILY_BY_TYPE = {
     "consumer_corner_document": "official_mandatory_document",
     "monthly_report": "report",
     "system_file": "system_file",
+    "thumbs_db": "system_file",
+    "ds_store": "system_file",
+    "desktop_ini": "system_file",
+    "office_temp_lock": "temporary_file",
+    "generated_cache_json": "temporary_file",
+    "chat_export_archive": "archive",
+    "chat_export_messages_html": "archive",
+    "chat_export_metadata_json": "archive",
+    "chat_thumbnail_image": "photo_asset",
     "backup_file": "archive",
 }
 
@@ -108,6 +128,56 @@ VALID_TARGET_FIELDS = set(UNKNOWN_VALUES) | {
     "classification_status",
     "action_recommendation",
     "cloud_analysis_candidate",
+}
+SENSITIVE_VALUES = {
+    "owner_data",
+    "owner_contract",
+    "guest_data",
+    "employee_data",
+    "personal_data",
+    "personal_data_possible",
+    "passport_data",
+    "phone_email",
+    "cadastral_number",
+    "EGRN_sensitive",
+    "real_estate_sensitive",
+    "legal_contract",
+    "legal_sensitive",
+    "signature_seal_sensitive",
+    "financial",
+    "accounting",
+    "bank_details",
+    "tax_details",
+    "HR",
+    "commercial",
+    "supplier_pricing",
+    "security",
+    "fire_safety",
+    "access_control",
+    "screenshot_sensitive",
+    "correspondence_sensitive",
+}
+ENTITY_PATTERNS: Dict[str, Pattern[str]] = {
+    "unit_number_detected": re.compile(r"\b(?:ап\.?|апарт\.?|апартамент|apt|unit)\s*№?\s*(\d{2,4})\b", re.IGNORECASE),
+    "premise_number_detected": re.compile(r"\b(?:пом\.?|помещение)\s*№?\s*(\d+\s*[-]?\s*[НH]?)\b", re.IGNORECASE),
+    "corpus_detected": re.compile(r"\b(?:корп\.?|корпус|к\.?)\s*(1|2)\b", re.IGNORECASE),
+    "cadastral_number_detected": re.compile(r"\b\d{2}:\d{2}:\d{6,7}:\d+\b"),
+    "contract_number_detected": re.compile(r"\b(?:договор|дог\.?|contract)\s*№?\s*([A-Za-zА-Яа-я0-9\-\/_.]+)", re.IGNORECASE),
+    "act_number_detected": re.compile(r"\b(?:акт|act)\s*№?\s*([A-Za-zА-Яа-я0-9\-\/_.]+)", re.IGNORECASE),
+    "invoice_number_detected": re.compile(r"\b(?:сч[её]т|invoice)\s*№?\s*([A-Za-zА-Яа-я0-9\-\/_.]+)", re.IGNORECASE),
+    "payment_order_number_detected": re.compile(r"\b(?:плат[её]жное поручение|п\/п)\s*№?\s*([A-Za-zА-Яа-я0-9\-\/_.]+)", re.IGNORECASE),
+    "date_detected": re.compile(r"\b(?:20\d{2}|19\d{2})[-_. ](?:0?[1-9]|1[0-2])[-_. ](?:0?[1-9]|[12]\d|3[01])\b|\b(?:0?[1-9]|[12]\d|3[01])[-_. ](?:0?[1-9]|1[0-2])[-_. ](?:20\d{2}|19\d{2})\b"),
+    "year_detected": re.compile(r"\b(20\d{2}|19\d{2})\b"),
+    "month_detected": re.compile(r"\b(?:январь|февраль|март|апрель|май|июнь|июль|август|сентябрь|октябрь|ноябрь|декабрь|january|february|march|april|may|june|july|august|september|october|november|december)\b", re.IGNORECASE),
+    "email_detected": re.compile(r"[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}"),
+    "phone_detected": re.compile(r"(?:\+7|8)[\s\-\(\)]*\d{3}[\s\-\(\)]*\d{3}[\s\-]*\d{2}[\s\-]*\d{2}", re.IGNORECASE),
+    "SNILS_detected": re.compile(r"\b\d{3}-\d{3}-\d{3}\s?\d{2}\b"),
+    "INN_detected": re.compile(r"\bИНН\s*[:№]?\s*(\d{10,12})\b", re.IGNORECASE),
+    "KPP_detected": re.compile(r"\bКПП\s*[:№]?\s*(\d{9})\b", re.IGNORECASE),
+    "OGRN_detected": re.compile(r"\bОГРН\s*[:№]?\s*(\d{13,15})\b", re.IGNORECASE),
+    "bank_account_detected": re.compile(r"\b\d{20}\b"),
+    "passport_marker_detected": re.compile(r"\b(?:паспорт|passport|серия\s+\d{4}|выдан)\b", re.IGNORECASE),
+    "legal_entity_marker_detected": re.compile(r"\b(?:ООО|АО|ИП|ИНН|КПП|ОГРН|БИК)\b", re.IGNORECASE),
 }
 
 
@@ -363,6 +433,7 @@ class MetadataClassifier:
 
         apply_hits(item, hits)
         finalize_item(item, hits)
+        enrich_v3_classification(item, hits)
         self.diagnostics.total_items_classified += 1
         self.diagnostics.total_classification_time_ms += (time.perf_counter() - started) * 1000
         return item
@@ -637,7 +708,9 @@ def finalize_item(item: DriveInventoryItem, hits: List[RuleHit]) -> None:
     if item.document_type_suggestion == "technical_maintenance_contract":
         item.process_suggestion = "technical_maintenance"
         item.function_suggestion = "owner_technical_maintenance"
-    if item.sensitivity_suggestion in {"owner_data", "owner_contract", "guest_data", "employee_data", "personal_data", "EGRN_sensitive", "legal_contract", "financial", "HR", "security"}:
+    if item.action_recommendation == "DO_NOT_TOUCH":
+        pass
+    elif item.sensitivity_suggestion in {"owner_data", "owner_contract", "guest_data", "employee_data", "personal_data", "personal_data_possible", "passport_data", "EGRN_sensitive", "legal_contract", "legal_sensitive", "signature_seal_sensitive", "financial", "accounting", "bank_details", "HR", "security"}:
         item.action_recommendation = "SENSITIVE_REVIEW_REQUIRED"
     elif item.cleanup_category in {"system_trash_candidate", "temp_file_candidate"}:
         item.action_recommendation = "REVIEW_REQUIRED"
@@ -745,6 +818,210 @@ def build_reason(item: DriveInventoryItem, hits: List[RuleHit]) -> str:
     if item.conflict_flags:
         parts.append(f"conflicts={item.conflict_flags}")
     return "; ".join(parts)
+
+
+def enrich_v3_classification(item: DriveInventoryItem, hits: List[RuleHit]) -> None:
+    apply_name_based_overrides(item)
+    extract_metadata_entities(item)
+    apply_field_confidence_and_evidence(item)
+    apply_sensitivity_flags(item)
+    apply_duplicate_sensitive_overrides(item)
+    apply_ocr_and_cloud_candidates(item)
+    item.human_review_queue = choose_human_review_queue(item)
+    item.classification_reason = build_classification_reason(item)
+
+
+def apply_name_based_overrides(item: DriveInventoryItem) -> None:
+    normalized = normalize_name(item.name)
+    if normalized == "thumbs.db":
+        item.document_family_suggestion = "system_file"
+        item.document_type_suggestion = "thumbs_db"
+    elif normalized == ".ds store":
+        item.document_family_suggestion = "system_file"
+        item.document_type_suggestion = "ds_store"
+    elif normalized == "desktop.ini":
+        item.document_family_suggestion = "system_file"
+        item.document_type_suggestion = "desktop_ini"
+    elif normalized.startswith("~$"):
+        item.document_family_suggestion = "temporary_file"
+        item.document_type_suggestion = "office_temp_lock"
+    if any(token in normalized for token in ["подпись", "печать", "signature", "stamp"]):
+        item.sensitivity_suggestion = "signature_seal_sensitive"
+        item.action_recommendation = "DO_NOT_TOUCH"
+        item.cleanup_category = "legal_hold_review"
+
+
+def extract_metadata_entities(item: DriveInventoryItem) -> None:
+    text = f"{item.full_path} {item.name}"
+    for field_name, pattern in ENTITY_PATTERNS.items():
+        match = pattern.search(text)
+        if not match:
+            continue
+        value = match.group(1) if match.groups() else match.group(0)
+        setattr(item, field_name, value[:120])
+
+
+def apply_field_confidence_and_evidence(item: DriveInventoryItem) -> None:
+    path_rules = compact_rules(item.matched_path_rules)
+    filename_rules = compact_rules(item.matched_filename_rules)
+    extension_rules = compact_rules(item.matched_extension_rules)
+    sensitivity_rules = compact_rules(item.matched_sensitivity_rules)
+    media_rules = compact_rules(item.matched_media_rules)
+    cleanup_rules = compact_rules(item.matched_cleanup_rules)
+    content_rules = compact_rules(item.content_rule_matches)
+    for field_name, base_confidence, evidence in [
+        ("object", item.path_confidence or "unknown", path_rules),
+        ("department", item.path_confidence or item.filename_confidence or "unknown", ";".join(filter(None, [path_rules, filename_rules]))),
+        ("function", item.combined_confidence, ";".join(filter(None, [path_rules, filename_rules, content_rules]))),
+        ("document_family", item.combined_confidence, ";".join(filter(None, [filename_rules, extension_rules, content_rules]))),
+        ("document_type", item.combined_confidence, ";".join(filter(None, [filename_rules, content_rules, extension_rules]))),
+        ("process", item.combined_confidence, ";".join(filter(None, [path_rules, filename_rules, content_rules]))),
+        ("sensitivity", "high" if item.sensitivity_suggestion in SENSITIVE_VALUES else item.combined_confidence, ";".join(filter(None, [sensitivity_rules, content_rules]))),
+        ("lifecycle", item.combined_confidence, ";".join(filter(None, [filename_rules, cleanup_rules]))),
+        ("cleanup", "high" if item.cleanup_category == "system_trash_candidate" else item.combined_confidence, cleanup_rules or filename_rules),
+        ("media_subtype", item.combined_confidence, media_rules or filename_rules),
+    ]:
+        setattr(item, f"{field_name}_confidence", normalize_confidence(base_confidence))
+        evidence_field = f"{field_name}_evidence"
+        if hasattr(item, evidence_field):
+            setattr(item, evidence_field, evidence[:500])
+    item.audience_confidence = normalize_confidence(item.combined_confidence)
+    item.source_origin_confidence = normalize_confidence(item.path_confidence or item.combined_confidence)
+
+
+def apply_sensitivity_flags(item: DriveInventoryItem) -> None:
+    flags = set(filter(None, item.content_sensitivity_flags.split(";")))
+    if item.sensitivity_suggestion not in {"", "unknown"}:
+        flags.add(item.sensitivity_suggestion)
+    for field_name, flag in [
+        ("passport_marker_detected", "passport_data"),
+        ("SNILS_detected", "personal_data"),
+        ("phone_detected", "phone_email"),
+        ("email_detected", "phone_email"),
+        ("cadastral_number_detected", "cadastral_number"),
+        ("INN_detected", "tax_details"),
+        ("KPP_detected", "tax_details"),
+        ("OGRN_detected", "tax_details"),
+        ("bank_account_detected", "bank_details"),
+    ]:
+        if getattr(item, field_name):
+            flags.add(flag)
+    item.sensitivity_flags = ";".join(sorted(flags))
+    if {"passport_data", "personal_data", "phone_email"} & flags and item.sensitivity_suggestion == "unknown":
+        item.sensitivity_suggestion = "personal_data_possible"
+    if {"bank_details", "tax_details"} & flags and item.sensitivity_suggestion == "unknown":
+        item.sensitivity_suggestion = "financial"
+
+
+def apply_duplicate_sensitive_overrides(item: DriveInventoryItem) -> None:
+    if item.duplicate_kind and item.sensitivity_suggestion in SENSITIVE_VALUES:
+        item.cleanup_category = "sensitive_duplicate_review"
+        item.human_review_queue = "sensitive_data_review"
+        item.action_recommendation = "SENSITIVE_REVIEW_REQUIRED"
+    if item.cleanup_category == "system_trash_candidate":
+        item.document_family_suggestion = "system_file"
+        item.cleanup_confidence = "high"
+
+
+def apply_ocr_and_cloud_candidates(item: DriveInventoryItem) -> None:
+    ext = (item.extension or "").lower()
+    mime = (item.mime_type or "").lower()
+    no_text_pdf = ext == "pdf" and item.content_extract_status in {"pdf_no_text_layer", "ocr_disabled", "not_attempted"}
+    image_candidate = mime.startswith("image/") or ext in {"jpg", "jpeg", "png", "webp", "tif", "tiff", "bmp"}
+    presentation_candidate = ext in {"pptx"} or mime in {
+        "application/vnd.google-apps.presentation",
+        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    }
+    document_scan_name = any(token in normalize_name(f"{item.full_path} {item.name}") for token in ["scan", "скан", "паспорт", "договор", "акт", "подпис"])
+    if item.is_google_sheet_skipped:
+        item.ocr_candidate = False
+        item.ocr_status = "skipped_google_sheet"
+        item.cloud_analysis_candidate = False
+        item.cloud_analysis_recommended_service = ""
+        item.cloud_analysis_approval_required = False
+        return
+    if no_text_pdf or (image_candidate and document_scan_name) or (presentation_candidate and item.content_extract_status in {"not_attempted", "unsupported_google_native"}):
+        item.ocr_candidate = True
+        item.ocr_status = "candidate_not_attempted"
+        item.ocr_reason = "metadata indicates scanned/no-text document candidate"
+        item.ocr_requires_manual_review = item.sensitivity_suggestion in SENSITIVE_VALUES
+    if image_candidate:
+        item.cloud_analysis_candidate = True
+        item.cloud_analysis_recommended_service = "Cloud Vision"
+    elif no_text_pdf:
+        item.cloud_analysis_candidate = True
+        item.cloud_analysis_recommended_service = "Document AI"
+    elif mime.startswith("video/"):
+        item.cloud_analysis_candidate = True
+        item.cloud_analysis_recommended_service = "Video Intelligence"
+    elif mime.startswith("audio/"):
+        item.cloud_analysis_candidate = True
+        item.cloud_analysis_recommended_service = "Speech-to-Text"
+    item.cloud_analysis_approval_required = bool(item.cloud_analysis_candidate and item.sensitivity_suggestion in SENSITIVE_VALUES)
+
+
+def choose_human_review_queue(item: DriveInventoryItem) -> str:
+    if item.cloud_analysis_approval_required:
+        return "cloud_ai_approval_review"
+    if item.conflict_flags or "content_metadata_conflict" in item.reason:
+        return "conflict_review"
+    if item.is_google_sheet_skipped:
+        return "knowledge_base_review"
+    if item.cleanup_category == "system_trash_candidate":
+        return "system_trash_review"
+    if item.ocr_candidate:
+        return "OCR_review"
+    if item.sensitivity_suggestion in {"legal_contract", "legal_sensitive"}:
+        return "legal_review"
+    if item.sensitivity_suggestion in {"owner_data", "owner_contract", "EGRN_sensitive", "real_estate_sensitive"}:
+        return "owner_contract_review"
+    if item.sensitivity_suggestion in {"financial", "accounting", "bank_details", "tax_details"}:
+        return "finance_review"
+    if item.sensitivity_suggestion in {"HR", "employee_data", "passport_data", "personal_data", "personal_data_possible"}:
+        return "HR_review"
+    if item.sensitivity_suggestion in {"publication_review_required", "people_media", "face_possible", "gps_metadata_possible"}:
+        return "media_publication_review"
+    if item.cleanup_category in {"duplicate_review", "sensitive_duplicate_review"} or item.duplicate_kind:
+        return "duplicate_review"
+    if item.classification_status in {"UNKNOWN", "NEEDS_REVIEW"}:
+        return "unknown_classification_review"
+    return "knowledge_base_review"
+
+
+def build_classification_reason(item: DriveInventoryItem) -> str:
+    parts = [item.reason]
+    if item.human_review_queue:
+        parts.append(f"human_review_queue={item.human_review_queue}")
+    if item.ocr_candidate:
+        parts.append(f"ocr_candidate={item.ocr_reason or 'metadata'}")
+    if item.cloud_analysis_candidate:
+        parts.append(f"cloud_service={item.cloud_analysis_recommended_service or 'unknown'}")
+    entity_fields = [
+        "unit_number_detected",
+        "premise_number_detected",
+        "contract_number_detected",
+        "act_number_detected",
+        "invoice_number_detected",
+        "cadastral_number_detected",
+        "INN_detected",
+        "bank_account_detected",
+    ]
+    detected = [field for field in entity_fields if getattr(item, field)]
+    if detected:
+        parts.append("entities=" + ",".join(detected))
+    return "; ".join(filter(None, parts))[:1000]
+
+
+def compact_rules(raw: str) -> str:
+    return ";".join(rule.split("@", 1)[0] for rule in filter(None, (raw or "").split(";")))
+
+
+def normalize_confidence(value: str) -> str:
+    if value in {"high", "medium", "low", "needs_review"}:
+        return value
+    if value in {"", "unknown"}:
+        return "unknown"
+    return "medium"
 
 
 def sanitize_path(path: str) -> str:
@@ -858,6 +1135,12 @@ def validate_rule_configs(config: InventoryConfig) -> RuleValidationReport:
                     warnings.append({"source": source, "rule_id": rule_id, "message": f"very short token: {token}"})
     if not config.skip_google_sheets:
         errors.append({"source": "policy", "rule_id": "", "message": "Google Sheets skip must remain enabled"})
+    if config.allow_cloud_ai_calls or config.enable_google_cloud_vision or config.enable_document_ai:
+        errors.append({"source": "policy", "rule_id": "", "message": "Cloud AI calls must remain disabled by default"})
+    if config.allow_sensitive_cloud_ai:
+        errors.append({"source": "policy", "rule_id": "", "message": "Sensitive Cloud AI upload must remain disabled by default"})
+    if config.ocr_store_text or config.ocr_store_sensitive_snippets:
+        errors.append({"source": "policy", "rule_id": "", "message": "OCR text/snippet storage must remain disabled by default"})
     return RuleValidationReport(errors=errors, warnings=warnings)
 
 
