@@ -18,5 +18,12 @@ drive_inventory:
   store_content_preview: false
   store_sensitive_snippets: false
   content_rules_config: configs/drive_content_rules.yml
+  classification_taxonomy_config: configs/drive_classification_taxonomy.yml
+  path_rules_config: configs/drive_path_rules.yml
+  filename_rules_config: configs/drive_filename_rules.yml
+  extension_rules_config: configs/drive_extension_rules.yml
+  sensitivity_rules_config: configs/drive_sensitivity_rules.yml
+  media_rules_config: configs/drive_media_rules.yml
+  cleanup_rules_config: configs/drive_cleanup_rules.yml
   safe_mode: true
   cache_dir: .cache/drive_inventory

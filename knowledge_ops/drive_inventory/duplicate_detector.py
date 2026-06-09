@@ -110,8 +110,18 @@ def apply_duplicate_groups(
             item.canonical_candidate_id = canonical.file_id
             if item.file_id == canonical.file_id:
                 item.action_recommendation = "MARK_AS_CANONICAL_CANDIDATE"
+                item.cleanup_category = "canonical_review"
+                item.lifecycle_status = "canonical_candidate"
             else:
                 item.action_recommendation = recommendation
+                item.cleanup_category = (
+                    "system_trash_candidate"
+                    if item.cleanup_category == "system_trash_candidate" or item.sensitivity_suggestion == "system_trash"
+                    else "duplicate_review"
+                )
+                item.lifecycle_status = "exact_duplicate_candidate" if duplicate_kind == "exact" else "duplicate_candidate"
+            if duplicate_kind == "exact" and item.classification_status != "CLASSIFIED_SYSTEM_TRASH":
+                item.classification_status = "CLASSIFIED_METADATA_MEDIUM"
             item.reason = append_reason(item.reason, reason)
     return result
 

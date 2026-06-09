@@ -47,6 +47,26 @@ INVENTORY_COLUMNS = [
     "audience_suggestion",
     "sensitivity_suggestion",
     "retention_suggestion",
+    "classification_status",
+    "matched_path_rules",
+    "matched_filename_rules",
+    "matched_extension_rules",
+    "matched_sensitivity_rules",
+    "path_confidence",
+    "filename_confidence",
+    "extension_confidence",
+    "combined_confidence",
+    "conflict_flags",
+    "lifecycle_status",
+    "cleanup_category",
+    "source_origin",
+    "media_subtype",
+    "image_subtype",
+    "video_subtype",
+    "audio_subtype",
+    "design_source_subtype",
+    "cloud_analysis_candidate",
+    "priority_for_human_review",
     "duplicate_group_id",
     "duplicate_kind",
     "canonical_candidate_id",
@@ -117,6 +137,26 @@ class DriveInventoryItem:
     audience_suggestion: str = "не определено"
     sensitivity_suggestion: str = "unknown"
     retention_suggestion: str = "review"
+    classification_status: str = "UNKNOWN"
+    matched_path_rules: str = ""
+    matched_filename_rules: str = ""
+    matched_extension_rules: str = ""
+    matched_sensitivity_rules: str = ""
+    path_confidence: str = ""
+    filename_confidence: str = ""
+    extension_confidence: str = ""
+    combined_confidence: str = "unknown"
+    conflict_flags: str = ""
+    lifecycle_status: str = "unknown"
+    cleanup_category: str = "unknown_review"
+    source_origin: str = "unknown_origin"
+    media_subtype: str = ""
+    image_subtype: str = ""
+    video_subtype: str = ""
+    audio_subtype: str = ""
+    design_source_subtype: str = ""
+    cloud_analysis_candidate: bool = False
+    priority_for_human_review: str = "normal"
     duplicate_group_id: str = ""
     duplicate_kind: str = ""
     canonical_candidate_id: str = ""

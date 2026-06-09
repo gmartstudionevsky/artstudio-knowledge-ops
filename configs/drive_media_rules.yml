@@ -1,0 +1,41 @@
+rules:
+  - rule_id: media_room_photo
+    tokens: ["номер", "номера", "апарт", "room", "room photo", "номерной фонд", "фото номеров", "Фотографии апартов"]
+    extensions: ["jpg", "jpeg", "png", "webp", "heic"]
+    target_fields: {media_subtype: "room_photo", image_subtype: "room_photo", document_type_suggestion: "room_photo", function_suggestion: "photo_archive", cleanup_category: "media_review"}
+    weight: 5
+  - rule_id: media_public_facade_photo
+    tokens: ["фасад", "лобби", "public area", "общественные зоны", "reception", "facade"]
+    extensions: ["jpg", "jpeg", "png", "webp"]
+    target_fields: {media_subtype: "public_area_photo", image_subtype: "public_area_photo", document_type_suggestion: "public_area_photo", cleanup_category: "media_review"}
+    weight: 4
+  - rule_id: media_smm_photo
+    tokens: ["SMM", "СММ", "stories", "reels", "пост", "контент", "фотосессия", "фотосессии"]
+    extensions: ["jpg", "jpeg", "png", "webp", "mp4", "mov"]
+    target_fields: {media_subtype: "SMM_photo", image_subtype: "SMM_photo", document_type_suggestion: "SMM_photo", function_suggestion: "smm_content", cleanup_category: "media_review"}
+    weight: 5
+  - rule_id: media_document_scan
+    tokens: ["скан", "scan", "подписанное", "ЭДО подписанное", "паспорт", "договор"]
+    extensions: ["jpg", "jpeg", "png", "pdf"]
+    target_fields: {media_subtype: "document_scan_image", image_subtype: "document_scan_image", lifecycle_status: "scanned_signed", cloud_analysis_candidate: true}
+    weight: 5
+  - rule_id: media_screenshot
+    tokens: ["screenshot", "screen", "скрин", "скриншот"]
+    extensions: ["jpg", "jpeg", "png", "webp"]
+    target_fields: {media_subtype: "screenshot", image_subtype: "screenshot", sensitivity_suggestion: "screenshot_sensitive", cloud_analysis_candidate: true}
+    weight: 5
+  - rule_id: media_logo_brand
+    tokens: ["logo", "логотип", "бренд", "brand", "svg", "eps", "ai"]
+    extensions: ["ai", "eps", "svg", "png", "jpg", "jpeg"]
+    target_fields: {media_subtype: "logo_or_brand_asset", image_subtype: "logo_or_brand_asset", design_source_subtype: "ai_source", document_type_suggestion: "logo", cleanup_category: "marketing_review"}
+    weight: 5
+  - rule_id: media_video
+    tokens: ["video", "видео", "tour", "обзор", "renovation", "ремонт", "training", "обучение"]
+    extensions: ["mp4", "mov", "avi", "3gp", "mkv"]
+    target_fields: {media_subtype: "unknown_video", video_subtype: "unknown_video", document_family_suggestion: "video_asset", cloud_analysis_candidate: true}
+    weight: 3
+  - rule_id: media_audio
+    tokens: ["audio", "аудио", "voice", "meeting", "recording", "запись"]
+    extensions: ["mp3", "m4a", "wav", "flac"]
+    target_fields: {media_subtype: "unknown_audio", audio_subtype: "unknown_audio", document_family_suggestion: "audio_asset", cloud_analysis_candidate: true}
+    weight: 3

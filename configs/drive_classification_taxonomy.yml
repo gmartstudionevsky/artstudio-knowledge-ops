@@ -1,0 +1,133 @@
+taxonomy_version: 2
+objects:
+  - ARTSTUDIO Nevsky
+  - ARTSTUDIO Moskovsky
+  - ARTSTUDIO M103
+  - ARTSTUDIO Network / сеть
+  - RBI PM / УК
+  - ApartPremium
+  - non_object / general
+  - unknown
+departments:
+  - GM / General Management
+  - Управление объектом
+  - Операционное управление
+  - СПиР / Front Office / Reception
+  - FOM
+  - Concierge / Concierge Book
+  - Бронирование / Reservations
+  - OTA / электронные каналы
+  - TravelLine / TL
+  - Fidelio / PMS
+  - Коммерческий отдел
+  - Revenue
+  - Pricing / тарифы / ценообразование
+  - Sales / отдел продаж
+  - Corporate Sales
+  - Marketing
+  - SMM
+  - Brand / Design
+  - Content / Photo / Video
+  - Owner Relations / отдел по работе с собственниками
+  - Договорной контур собственников
+  - Передача / приёмка апартаментов
+  - Housekeeping / ХСК / HSK / HSKP
+  - Номерной фонд
+  - Engineering / ИТС / техническая служба
+  - Security / охрана
+  - Fire Safety / пожарная безопасность
+  - IT / системы / доступы
+  - Procurement / закупки
+  - Suppliers / подрядчики
+  - Warehouse / склад / ТМЦ
+  - Finance
+  - Accounting / бухгалтерия
+  - Cashdesk / касса
+  - HR / кадры
+  - Training / обучение / аттестация
+  - Legal
+  - Compliance / обязательные документы
+  - Consumer Corner / уголок потребителя
+  - Analytics / отчётность
+  - Project Management
+  - Renovation / CapEx / ремонт
+  - Archive
+  - Trash / System / Temporary
+  - Unknown
+document_families:
+  - contract
+  - act
+  - registry
+  - report
+  - template
+  - standard_sop
+  - instruction
+  - checklist
+  - legal_document
+  - financial_document
+  - accounting_document
+  - HR_document
+  - owner_document
+  - guest_document
+  - technical_document
+  - project_document
+  - procurement_document
+  - marketing_asset
+  - brand_asset
+  - media_asset
+  - photo_asset
+  - video_asset
+  - audio_asset
+  - presentation
+  - correspondence
+  - official_mandatory_document
+  - egrn_cadastre_document
+  - archive
+  - system_file
+  - temporary_file
+  - unknown
+classification_statuses:
+  - CLASSIFIED_PATH_HIGH
+  - CLASSIFIED_FILENAME_HIGH
+  - CLASSIFIED_METADATA_MEDIUM
+  - CLASSIFIED_EXTENSION_ONLY
+  - CLASSIFIED_MEDIA_METADATA
+  - CLASSIFIED_SYSTEM_TRASH
+  - CLASSIFIED_SENSITIVE
+  - CONFLICT_METADATA
+  - NEEDS_REVIEW
+  - UNKNOWN
+lifecycle_statuses:
+  - current_candidate
+  - canonical_candidate
+  - active_working
+  - draft
+  - final
+  - signed
+  - scanned_signed
+  - exported_copy
+  - backup
+  - old_version
+  - archive
+  - historical
+  - duplicate_candidate
+  - exact_duplicate_candidate
+  - temp_system
+  - unknown
+cleanup_categories:
+  - keep_review
+  - canonical_review
+  - archive_review
+  - contract_archive_review
+  - duplicate_review
+  - sensitive_review
+  - legal_hold_review
+  - owner_contract_review
+  - media_review
+  - marketing_review
+  - system_trash_candidate
+  - temp_file_candidate
+  - shortcut_review
+  - unknown_review
+  - cloud_analysis_candidate
+  - skip_google_sheet

@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
 
-from knowledge_ops.drive_inventory.classifier import classify_item
+from knowledge_ops.drive_inventory.classifier import MetadataClassifier, classify_item
 from knowledge_ops.drive_inventory.config import InventoryConfig
 from knowledge_ops.drive_inventory.content_inspector import (
     ContentInspector,
@@ -42,6 +42,7 @@ class DriveInventoryScanner:
     def __init__(self, client: DriveInventoryClient, config: InventoryConfig):
         self.client = client
         self.config = config
+        self.classifier = MetadataClassifier(config)
         self.content_inspector = ContentInspector(
             client=client,
             config=config,
@@ -77,7 +78,7 @@ class DriveInventoryScanner:
                     result.items.append(item)
                     continue
                 if mode in {"classify", "full"}:
-                    classify_item(item)
+                    classify_item(item, self.classifier)
                 if mode in {"classify", "full"} and self.config.enable_content_inspection and item.object_kind == "folder":
                     item.content_inspection_enabled = True
                     item.content_extract_status = "skipped_folder"

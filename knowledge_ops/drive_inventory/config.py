@@ -28,6 +28,13 @@ class InventoryConfig:
     store_content_preview: bool = False
     store_sensitive_snippets: bool = False
     content_rules_config: str = "configs/drive_content_rules.yml"
+    classification_taxonomy_config: str = "configs/drive_classification_taxonomy.yml"
+    path_rules_config: str = "configs/drive_path_rules.yml"
+    filename_rules_config: str = "configs/drive_filename_rules.yml"
+    extension_rules_config: str = "configs/drive_extension_rules.yml"
+    sensitivity_rules_config: str = "configs/drive_sensitivity_rules.yml"
+    media_rules_config: str = "configs/drive_media_rules.yml"
+    cleanup_rules_config: str = "configs/drive_cleanup_rules.yml"
     safe_mode: bool = True
     cache_dir: str = ".cache/drive_inventory"
 
@@ -62,6 +69,15 @@ class InventoryConfig:
                 inventory.get("store_sensitive_snippets", cls.store_sensitive_snippets)
             ),
             content_rules_config=inventory.get("content_rules_config", cls.content_rules_config),
+            classification_taxonomy_config=inventory.get(
+                "classification_taxonomy_config", cls.classification_taxonomy_config
+            ),
+            path_rules_config=inventory.get("path_rules_config", cls.path_rules_config),
+            filename_rules_config=inventory.get("filename_rules_config", cls.filename_rules_config),
+            extension_rules_config=inventory.get("extension_rules_config", cls.extension_rules_config),
+            sensitivity_rules_config=inventory.get("sensitivity_rules_config", cls.sensitivity_rules_config),
+            media_rules_config=inventory.get("media_rules_config", cls.media_rules_config),
+            cleanup_rules_config=inventory.get("cleanup_rules_config", cls.cleanup_rules_config),
             safe_mode=as_bool(inventory.get("safe_mode", cls.safe_mode)),
             cache_dir=inventory.get("cache_dir", cls.cache_dir),
         )

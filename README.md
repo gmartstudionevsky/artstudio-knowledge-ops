@@ -20,6 +20,8 @@
 - `knowledge_ops/drive_inventory` — инвентаризация Drive, классификация, дубли, content inspection, отчеты.
 - `knowledge_ops/ai_analysis` — estimate-only подготовка будущего Cloud AI-анализа и расчет примерной стоимости.
 - `configs/drive_inventory.yml` — параметры инвентаризации.
+- `configs/drive_classification_taxonomy.yml` — Taxonomy V2: статусы, объекты, подразделения, семейства документов и cleanup-категории.
+- `configs/drive_path_rules.yml`, `configs/drive_filename_rules.yml`, `configs/drive_extension_rules.yml`, `configs/drive_sensitivity_rules.yml`, `configs/drive_media_rules.yml`, `configs/drive_cleanup_rules.yml` — первичная metadata-only классификация по пути, имени, формату, чувствительности, медиа и cleanup-сигналам.
 - `configs/drive_content_rules.yml` — правила content inspection.
 - `configs/ai_analysis_pricing.yml` — оценочные цены Cloud AI.
 - `configs/ai_analysis_routing.yml` — сценарии, маршрутизация и budget guards.
@@ -79,9 +81,11 @@ python -m knowledge_ops.drive_inventory \
 2. Нажмите `Run workflow`.
 3. Для первого безопасного полного реестра выберите `metadata_only_registry=true`. Workflow пройдёт по всем доступным service account объектам, принудительно использует `max_files=0`, не скачивает содержимое и отдаст artifact `drive-inventory-01-metadata`.
 4. Для полноценной предварительной классификации выберите `metadata_only_registry=false`, `max_files=0`, `content_inspection_max_files=0`, `enable_ocr=true`, `generate_ai_estimate=true`. Этот режим скачивает поддерживаемые файлы в пределах лимитов, пытается извлечь текст из документов/PDF и, где возможно, делает локальный OCR изображений и сканов.
-5. После завершения скачайте artifacts. Основные файлы для разбора: `all_objects.csv`, `inventory.csv`, `content_inspection.csv`, `classification_review.csv`, `sensitivity_review.csv`, `access_coverage.csv`, `inventory.xlsx`, `audit_report.md`.
+5. После завершения скачайте artifacts. Основные файлы для разбора: `all_objects.csv`, `inventory.csv`, `content_inspection.csv`, `classification_review.csv`, `sensitivity_review.csv`, `access_coverage.csv`, `object_classification_summary.csv`, `department_classification_summary.csv`, `document_type_summary.csv`, `unknown_after_v2.csv`, `cleanup_candidates.csv`, `rule_match_summary.csv`, `inventory.xlsx`, `audit_report.md`.
 
 `all_objects.csv` — полный реестр всего увиденного, включая Google Sheets как metadata-only объекты. `inventory.csv` — рабочий реестр файлов для классификации, без содержимого Google Sheets.
+
+Для сравнения качества Taxonomy V2 с первым полным реестром смотрите долю `UNKNOWN`, количество `CONFLICT_METADATA`, распределение `classification_status`, топ правил в `rule_match_summary.csv`, кандидатов в `cleanup_candidates.csv` и остаток ручной проверки в `unknown_after_v2.csv`.
 
 ## Локальный запуск AI estimate
 

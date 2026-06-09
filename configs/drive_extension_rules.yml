@@ -1,0 +1,50 @@
+rules:
+  - rule_id: extension_pdf
+    extensions: ["pdf"]
+    mime_prefixes: ["application/pdf"]
+    target_fields: {document_family_suggestion: "legal_document", document_type_suggestion: "unknown_pdf", cloud_analysis_candidate: true}
+    weight: 2
+  - rule_id: extension_office_document
+    extensions: ["docx", "doc", "docm", "rtf", "odt", "txt", "html", "htm"]
+    mime_prefixes: ["text/"]
+    target_fields: {document_family_suggestion: "unknown", document_type_suggestion: "unknown_document", cloud_analysis_candidate: true}
+    weight: 2
+  - rule_id: extension_spreadsheet
+    extensions: ["xlsx", "xls", "xlsm", "xlsb", "ods", "csv"]
+    target_fields: {document_family_suggestion: "registry", document_type_suggestion: "analytics_export", cloud_analysis_candidate: true}
+    weight: 2
+  - rule_id: extension_image
+    extensions: ["jpg", "jpeg", "jfif", "png", "webp", "gif", "avif", "bmp", "tiff", "tif", "heic"]
+    mime_prefixes: ["image/"]
+    target_fields: {document_family_suggestion: "photo_asset", document_type_suggestion: "photo_shoot", media_subtype: "unknown_image", image_subtype: "unknown_image", cloud_analysis_candidate: true}
+    weight: 3
+  - rule_id: extension_video
+    extensions: ["mp4", "mov", "avi", "3gp", "mkv", "webm", "m4v"]
+    mime_prefixes: ["video/"]
+    target_fields: {document_family_suggestion: "video_asset", document_type_suggestion: "SMM_video", media_subtype: "unknown_video", video_subtype: "unknown_video", cloud_analysis_candidate: true}
+    weight: 3
+  - rule_id: extension_audio
+    extensions: ["mp3", "m4a", "wav", "flac", "ogg", "aac"]
+    mime_prefixes: ["audio/"]
+    target_fields: {document_family_suggestion: "audio_asset", document_type_suggestion: "meeting_recording", media_subtype: "unknown_audio", audio_subtype: "unknown_audio", cloud_analysis_candidate: true}
+    weight: 3
+  - rule_id: extension_design_source
+    extensions: ["ai", "eps", "svg", "cdr", "indd", "psd", "fig", "sketch"]
+    target_fields: {document_family_suggestion: "brand_asset", document_type_suggestion: "AI_EPS_SVG_source", media_subtype: "unknown_design", design_source_subtype: "unknown_design", sensitivity_suggestion: "brand_sensitive", cleanup_category: "marketing_review"}
+    weight: 3
+  - rule_id: extension_font
+    extensions: ["ttf", "otf", "woff", "woff2"]
+    target_fields: {document_family_suggestion: "brand_asset", document_type_suggestion: "font_file", media_subtype: "font_file", design_source_subtype: "font_file", cleanup_category: "marketing_review"}
+    weight: 3
+  - rule_id: extension_archive
+    extensions: ["zip", "7z", "rar", "tar", "gz"]
+    target_fields: {document_family_suggestion: "archive", document_type_suggestion: "backup_file", lifecycle_status: "archive", cleanup_category: "archive_review"}
+    weight: 2
+  - rule_id: extension_system_trash
+    extensions: ["db", "ini", "log", "tmp", "lnk", "wbk", "dat", "sqlite", "sql", "exe", "apk", "url", "key"]
+    target_fields: {department_suggestion: "Trash / System / Temporary", function_suggestion: "system_trash", document_family_suggestion: "system_file", document_type_suggestion: "system_file", process_suggestion: "system_cleanup", sensitivity_suggestion: "system_trash", lifecycle_status: "temp_system", cleanup_category: "system_trash_candidate"}
+    weight: 5
+  - rule_id: extension_signature_technical
+    extensions: ["json", "xml", "enc", "sig", "p7s"]
+    target_fields: {document_family_suggestion: "system_file", document_type_suggestion: "diagnostics_file", cleanup_category: "keep_review"}
+    weight: 1

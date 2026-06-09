@@ -16,6 +16,9 @@ from knowledge_ops.drive_inventory.scanner import InventoryResult
 FOLDER_COLUMNS = ["file_id", "name", "full_path", "depth", "file_count", "subfolder_count", "top_mime_types", "chaos_signals"]
 ERROR_COLUMNS = ["file_id", "name", "error"]
 ACCESS_COVERAGE_COLUMNS = ["metric", "value", "notes"]
+SUMMARY_COLUMNS = ["dimension", "value", "count"]
+RULE_SUMMARY_COLUMNS = ["source", "rule_id", "count"]
+EXACT_DUPLICATE_GROUP_COLUMNS = ["duplicate_group_id", "canonical_candidate_id", "row_count", "total_size", "sample_paths"]
 CONTENT_INSPECTION_COLUMNS = [
     "file_id",
     "name",
@@ -83,6 +86,26 @@ RU_HEADERS = {
     "audience_suggestion": "Аудитория",
     "sensitivity_suggestion": "Чувствительность / риск",
     "retention_suggestion": "Предложение по хранению",
+    "classification_status": "Статус классификации",
+    "matched_path_rules": "Сработавшие path-правила",
+    "matched_filename_rules": "Сработавшие filename-правила",
+    "matched_extension_rules": "Сработавшие extension-правила",
+    "matched_sensitivity_rules": "Сработавшие sensitivity-правила",
+    "path_confidence": "Уверенность по пути",
+    "filename_confidence": "Уверенность по имени",
+    "extension_confidence": "Уверенность по расширению",
+    "combined_confidence": "Итоговая уверенность",
+    "conflict_flags": "Конфликты сигналов",
+    "lifecycle_status": "Lifecycle статус",
+    "cleanup_category": "Cleanup категория",
+    "source_origin": "Источник / origin",
+    "media_subtype": "Медиа subtype",
+    "image_subtype": "Image subtype",
+    "video_subtype": "Video subtype",
+    "audio_subtype": "Audio subtype",
+    "design_source_subtype": "Design/source subtype",
+    "cloud_analysis_candidate": "Кандидат на Cloud AI",
+    "priority_for_human_review": "Приоритет ручного разбора",
     "duplicate_group_id": "Группа дублей",
     "duplicate_kind": "Тип дубля",
     "canonical_candidate_id": "Кандидат в канон",
@@ -122,6 +145,13 @@ RU_HEADERS = {
     "metric": "Метрика",
     "value": "Значение",
     "notes": "Примечание",
+    "dimension": "Измерение",
+    "value": "Значение",
+    "count": "Количество",
+    "source": "Источник правила",
+    "row_count": "Количество строк",
+    "total_size": "Суммарный размер",
+    "sample_paths": "Примеры путей",
     "current_path": "Текущий путь",
     "suggested_object": "Предложенный объект",
     "suggested_department": "Предложенное подразделение",
@@ -147,6 +177,13 @@ MIGRATION_COLUMNS = [
     "duplicate_kind",
     "canonical_candidate_id",
     "preliminary_action",
+    "classification_status",
+    "lifecycle_status",
+    "cleanup_category",
+    "source_origin",
+    "media_subtype",
+    "cloud_analysis_candidate",
+    "priority_for_human_review",
     "confidence",
     "reason",
     "human_decision",
@@ -170,6 +207,16 @@ def write_reports(result: InventoryResult, out_dir: str | Path) -> None:
     sensitivity_review = [item for item in items if item.action_recommendation == "SENSITIVE_REVIEW_REQUIRED"]
     migration_rows = build_migration_plan(items)
     coverage_rows = build_access_coverage(result)
+    rule_summary = build_rule_match_summary(result.items)
+    object_summary = build_summary_rows("object", (item.object_suggestion for item in items))
+    department_summary = build_summary_rows("department", (item.department_suggestion for item in items))
+    document_type_summary = build_summary_rows("document_type", (item.document_type_suggestion for item in items))
+    sensitivity_summary = build_summary_rows("sensitivity", (item.sensitivity_suggestion for item in items))
+    cleanup_candidates = [item for item in items if item.cleanup_category not in {"", "keep_review", "unknown_review"}]
+    system_trash_candidates = [item for item in items if item.cleanup_category == "system_trash_candidate"]
+    exact_duplicate_groups = build_exact_duplicate_group_rows(items)
+    media_summary = build_summary_rows("media_subtype", (item.media_subtype or item.image_subtype or item.video_subtype or item.audio_subtype or item.design_source_subtype for item in items if item.media_subtype or item.image_subtype or item.video_subtype or item.audio_subtype or item.design_source_subtype))
+    unknown_after_v2 = [item for item in items if item.classification_status in {"UNKNOWN", "NEEDS_REVIEW"} or item.combined_confidence in {"unknown", "needs_review"}]
 
     write_csv(output / "all_objects.csv", INVENTORY_COLUMNS, (item.to_row() for item in result.items))
     write_localized_csv(output / "all_objects_ru.csv", INVENTORY_COLUMNS, (item.to_row() for item in result.items))
@@ -201,6 +248,16 @@ def write_reports(result: InventoryResult, out_dir: str | Path) -> None:
     write_localized_csv(output / "errors_ru.csv", ERROR_COLUMNS, result.errors)
     write_csv(output / "access_coverage.csv", ACCESS_COVERAGE_COLUMNS, coverage_rows)
     write_localized_csv(output / "access_coverage_ru.csv", ACCESS_COVERAGE_COLUMNS, coverage_rows)
+    write_csv(output / "rule_match_summary.csv", RULE_SUMMARY_COLUMNS, rule_summary)
+    write_csv(output / "object_classification_summary.csv", SUMMARY_COLUMNS, object_summary)
+    write_csv(output / "department_classification_summary.csv", SUMMARY_COLUMNS, department_summary)
+    write_csv(output / "document_type_summary.csv", SUMMARY_COLUMNS, document_type_summary)
+    write_csv(output / "sensitivity_summary.csv", SUMMARY_COLUMNS, sensitivity_summary)
+    write_csv(output / "cleanup_candidates.csv", INVENTORY_COLUMNS, (item.to_row() for item in cleanup_candidates))
+    write_csv(output / "system_trash_candidates.csv", INVENTORY_COLUMNS, (item.to_row() for item in system_trash_candidates))
+    write_csv(output / "exact_duplicate_groups.csv", EXACT_DUPLICATE_GROUP_COLUMNS, exact_duplicate_groups)
+    write_csv(output / "media_classification_summary.csv", SUMMARY_COLUMNS, media_summary)
+    write_csv(output / "unknown_after_v2.csv", INVENTORY_COLUMNS, (item.to_row() for item in unknown_after_v2))
     write_tree(output / "drive_structure_tree.md", folders)
     write_audit_report(output / "audit_report.md", result, folders, exact, version, semantic, sensitivity_review)
     write_excel(
@@ -215,6 +272,16 @@ def write_reports(result: InventoryResult, out_dir: str | Path) -> None:
         sensitivity_review,
         migration_rows,
         coverage_rows,
+        rule_summary,
+        object_summary,
+        department_summary,
+        document_type_summary,
+        sensitivity_summary,
+        cleanup_candidates,
+        system_trash_candidates,
+        exact_duplicate_groups,
+        media_summary,
+        unknown_after_v2,
     )
 
 
@@ -252,6 +319,13 @@ def build_migration_plan(items: List[DriveInventoryItem]) -> List[Dict[str, str]
                 "duplicate_kind": item.duplicate_kind,
                 "canonical_candidate_id": item.canonical_candidate_id,
                 "preliminary_action": item.action_recommendation,
+                "classification_status": item.classification_status,
+                "lifecycle_status": item.lifecycle_status,
+                "cleanup_category": item.cleanup_category,
+                "source_origin": item.source_origin,
+                "media_subtype": item.media_subtype or item.image_subtype or item.video_subtype or item.audio_subtype or item.design_source_subtype,
+                "cloud_analysis_candidate": item.cloud_analysis_candidate,
+                "priority_for_human_review": item.priority_for_human_review,
                 "confidence": item.confidence,
                 "reason": item.reason,
                 "human_decision": "",
@@ -287,6 +361,56 @@ def build_access_coverage(result: InventoryResult) -> List[Dict[str, str]]:
         rows.append({"metric": "objects_by_drive_id", "value": str(count), "notes": drive_id})
     for status, count in status_counts.most_common():
         rows.append({"metric": "content_extract_status", "value": str(count), "notes": status})
+    return rows
+
+
+def build_summary_rows(dimension: str, values: Iterable[str]) -> List[Dict[str, str]]:
+    counter = Counter(value or "(empty)" for value in values)
+    return [
+        {"dimension": dimension, "value": value, "count": str(count)}
+        for value, count in counter.most_common()
+    ]
+
+
+def build_rule_match_summary(items: List[DriveInventoryItem]) -> List[Dict[str, str]]:
+    counters: Dict[str, Counter] = {
+        "path": Counter(),
+        "filename": Counter(),
+        "extension": Counter(),
+        "sensitivity": Counter(),
+    }
+    field_map = {
+        "path": "matched_path_rules",
+        "filename": "matched_filename_rules",
+        "extension": "matched_extension_rules",
+        "sensitivity": "matched_sensitivity_rules",
+    }
+    for item in items:
+        for source, field_name in field_map.items():
+            for raw_rule in filter(None, getattr(item, field_name).split(";")):
+                rule_id = raw_rule.split("@", 1)[0]
+                counters[source][rule_id] += 1
+    rows = []
+    for source, counter in counters.items():
+        rows.extend({"source": source, "rule_id": rule_id, "count": str(count)} for rule_id, count in counter.most_common())
+    return rows
+
+
+def build_exact_duplicate_group_rows(items: List[DriveInventoryItem]) -> List[Dict[str, str]]:
+    rows = []
+    groups = sorted({item.duplicate_group_id for item in items if item.duplicate_kind == "exact" and item.duplicate_group_id})
+    for group_id in groups:
+        group_items = [item for item in items if item.duplicate_group_id == group_id]
+        canonical = next((item.canonical_candidate_id for item in group_items if item.canonical_candidate_id), "")
+        rows.append(
+            {
+                "duplicate_group_id": group_id,
+                "canonical_candidate_id": canonical,
+                "row_count": str(len(group_items)),
+                "total_size": str(sum(int(item.size or 0) for item in group_items)),
+                "sample_paths": " | ".join(item.full_path for item in group_items[:5]),
+            }
+        )
     return rows
 
 
@@ -331,11 +455,11 @@ def content_sensitivity_rows(items: List[DriveInventoryItem]) -> List[Dict[str, 
 def future_target_area(item: DriveInventoryItem) -> str:
     if item.duplicate_group_id:
         return "Карантин дублей"
-    if item.document_family_suggestion == "стандарты / SOP / инструкции":
+    if item.document_family_suggestion in {"стандарты / SOP / инструкции", "standard_sop", "instruction", "checklist"}:
         return "Канон / стандарты / регламенты / SOP"
-    if item.document_family_suggestion == "шаблоны и формы":
+    if item.document_family_suggestion in {"шаблоны и формы", "template"}:
         return "Шаблоны и бланки"
-    if item.sensitivity_suggestion in {"legal_contract"}:
+    if item.sensitivity_suggestion in {"legal_contract", "owner_contract"}:
         return "Юридические / обязательные документы"
     if item.sensitivity_suggestion in {"financial", "accounting"}:
         return "Финансы / бухгалтерия"
@@ -343,7 +467,7 @@ def future_target_area(item: DriveInventoryItem) -> str:
         return "Кадры"
     if item.department_suggestion == "маркетинг / SMM / бренд":
         return "Маркетинг и медиа"
-    if item.document_family_suggestion == "отчёты / реестры / финансы":
+    if item.document_family_suggestion in {"отчёты / реестры / финансы", "report", "registry", "financial_document", "accounting_document"}:
         return "Отчёты и аналитика"
     if item.object_suggestion not in {"объект не определён", "не объектный / общий документ"}:
         return "Объектные материалы"
@@ -374,6 +498,10 @@ def write_audit_report(
 ) -> None:
     items = [item for item in result.items if not item.is_google_sheet_skipped]
     files = [item for item in items if item.object_kind == "file"]
+    rule_summary = build_rule_match_summary(result.items)
+    path_rule_counts = Counter({row["rule_id"]: int(row["count"]) for row in rule_summary if row["source"] == "path"})
+    filename_rule_counts = Counter({row["rule_id"]: int(row["count"]) for row in rule_summary if row["source"] == "filename"})
+    sensitivity_rule_counts = Counter({row["rule_id"]: int(row["count"]) for row in rule_summary if row["source"] == "sensitivity"})
     lines = [
         "# Отчет по инвентаризации Google Drive",
         "",
@@ -393,6 +521,7 @@ def write_audit_report(
         f"- OCR недоступен/не дал текста: {sum(1 for item in result.items if item.content_extract_status in {'ocr_unavailable', 'ocr_no_text', 'ocr_failed'})}",
         f"- Пропущено по размеру: {sum(1 for item in result.items if 'file_too_large' in item.content_extract_error or item.content_extract_status == 'skipped_too_large')}",
         f"- Ошибок извлечения текста: {sum(1 for item in result.items if item.content_extract_status == 'extract_error')}",
+        f"- V2 unknown после metadata-классификации: {sum(1 for item in files if item.classification_status in {'UNKNOWN', 'NEEDS_REVIEW'})}",
         "",
         "## Распределения",
         counter_section("MIME-типы", Counter(item.mime_type for item in files)),
@@ -401,6 +530,11 @@ def write_audit_report(
         counter_section("Подразделения", Counter(item.department_suggestion for item in files)),
         counter_section("Типы документов", Counter(item.document_type_suggestion for item in files)),
         counter_section("Чувствительность", Counter(item.sensitivity_suggestion for item in files)),
+        counter_section("Classification status", Counter(item.classification_status for item in files)),
+        counter_section("Cleanup category", Counter(item.cleanup_category for item in files)),
+        counter_section("Lifecycle status", Counter(item.lifecycle_status for item in files)),
+        counter_section("Priority for human review", Counter(item.priority_for_human_review for item in files)),
+        counter_section("Media subtype", Counter(item.media_subtype or item.image_subtype or item.video_subtype or item.audio_subtype or item.design_source_subtype for item in files if item.media_subtype or item.image_subtype or item.video_subtype or item.audio_subtype or item.design_source_subtype)),
         counter_section("Типы документов по содержимому", Counter(item.content_based_document_type for item in files if item.content_based_document_type)),
         counter_section("Флаги чувствительности по содержимому", Counter(flag for item in files for flag in item.content_sensitivity_flags.split(";") if flag)),
         counter_section("Статусы извлечения содержимого", Counter(item.content_extract_status for item in result.items if item.content_inspection_enabled)),
@@ -419,7 +553,17 @@ def write_audit_report(
             f"- Потенциально чувствительных строк: {len(sensitivity)}",
             f"- Неизвестных типов документов: {sum(1 for item in files if item.document_type_suggestion == 'неизвестно')}",
             f"- Конфликтов metadata/content: {sum(1 for item in files if 'content_metadata_conflict' in item.reason)}",
+            f"- Конфликтов metadata V2: {sum(1 for item in files if item.conflict_flags)}",
             f"- Тип определен только по содержимому: {sum(1 for item in files if item.content_based_document_type and item.content_based_document_type == item.document_type_suggestion)}",
+            "",
+            "## Taxonomy V2",
+            counter_section("Top path rules", path_rule_counts),
+            counter_section("Top filename rules", filename_rule_counts),
+            counter_section("Top sensitivity rules", sensitivity_rule_counts),
+            f"- Cleanup candidates: {sum(1 for item in files if item.cleanup_category not in {'', 'keep_review', 'unknown_review'})}",
+            f"- System trash candidates: {sum(1 for item in files if item.cleanup_category == 'system_trash_candidate')}",
+            f"- Exact duplicate groups: {count_groups(exact)}",
+            f"- Owner/legal/financial/HR sensitive rows: {sum(1 for item in files if item.sensitivity_suggestion in {'owner_data', 'owner_contract', 'legal_contract', 'financial', 'HR', 'employee_data'})}",
             "",
             "## Ошибки и ограничения",
             f"- Ошибок: {len(result.errors)}",
@@ -461,6 +605,16 @@ def write_excel(
     sensitivity_review: List[DriveInventoryItem],
     migration_rows: List[Dict[str, str]],
     coverage_rows: List[Dict[str, str]],
+    rule_summary: List[Dict[str, str]],
+    object_summary: List[Dict[str, str]],
+    department_summary: List[Dict[str, str]],
+    document_type_summary: List[Dict[str, str]],
+    sensitivity_summary: List[Dict[str, str]],
+    cleanup_candidates: List[DriveInventoryItem],
+    system_trash_candidates: List[DriveInventoryItem],
+    exact_duplicate_groups: List[Dict[str, str]],
+    media_summary: List[Dict[str, str]],
+    unknown_after_v2: List[DriveInventoryItem],
 ) -> None:
     wb = Workbook()
     summary = wb.active
@@ -481,6 +635,17 @@ def write_excel(
     )
     add_sheet(wb, "All Objects", INVENTORY_COLUMNS, [item.to_row() for item in result.items])
     add_sheet(wb, "Inventory", INVENTORY_COLUMNS, [item.to_row() for item in items])
+    add_sheet(wb, "Classification V2 Summary", SUMMARY_COLUMNS, object_summary + department_summary + document_type_summary + sensitivity_summary)
+    add_sheet(wb, "Objects", SUMMARY_COLUMNS, object_summary)
+    add_sheet(wb, "Departments", SUMMARY_COLUMNS, department_summary)
+    add_sheet(wb, "Document Types", SUMMARY_COLUMNS, document_type_summary)
+    add_sheet(wb, "Sensitivity", SUMMARY_COLUMNS, sensitivity_summary)
+    add_sheet(wb, "Cleanup Candidates", INVENTORY_COLUMNS, [item.to_row() for item in cleanup_candidates])
+    add_sheet(wb, "System Trash", INVENTORY_COLUMNS, [item.to_row() for item in system_trash_candidates])
+    add_sheet(wb, "Media", SUMMARY_COLUMNS, media_summary)
+    add_sheet(wb, "Unknown After V2", INVENTORY_COLUMNS, [item.to_row() for item in unknown_after_v2])
+    add_sheet(wb, "Rule Matches", RULE_SUMMARY_COLUMNS, rule_summary)
+    add_sheet(wb, "Exact Duplicate Groups", EXACT_DUPLICATE_GROUP_COLUMNS, exact_duplicate_groups)
     add_sheet(wb, "Folders", FOLDER_COLUMNS, folders)
     add_sheet(wb, "Skipped Google Sheets", INVENTORY_COLUMNS, [item.to_row() for item in result.skipped_google_sheets])
     add_sheet(wb, "Exact Duplicates", INVENTORY_COLUMNS, [item.to_row() for item in exact])
@@ -490,7 +655,7 @@ def write_excel(
     add_sheet(wb, "Sensitivity Review", INVENTORY_COLUMNS, [item.to_row() for item in sensitivity_review])
     add_sheet(wb, "Migration Decision Plan", MIGRATION_COLUMNS, migration_rows)
     add_sheet(wb, "Content Inspection", CONTENT_INSPECTION_COLUMNS, content_inspection_rows(result.items))
-    add_sheet(wb, "Rule Matches", CONTENT_RULE_MATCH_COLUMNS, content_rule_match_rows(result.items))
+    add_sheet(wb, "Content Rule Matches", CONTENT_RULE_MATCH_COLUMNS, content_rule_match_rows(result.items))
     add_sheet(wb, "Content Sensitivity", CONTENT_SENSITIVITY_COLUMNS, content_sensitivity_rows(result.items))
     add_sheet(wb, "Access Coverage", ACCESS_COVERAGE_COLUMNS, coverage_rows)
     add_sheet(wb, "Errors", ERROR_COLUMNS, result.errors)
