@@ -88,6 +88,10 @@ Workflow `Drive Inventory Pipeline` запускается только вруч
 
 Результаты не коммитятся в репозиторий.
 
+В интерфейсе GitHub путь такой: `Actions` -> `Drive Inventory Pipeline` -> `Run workflow`.
+Файл workflow лежит в `.github/workflows/drive-inventory.yml`, а настройки инвентаризации — в `configs/drive_inventory.yml`.
+Старый путь `config/drive-inventory.yml` не используется.
+
 ## Отчёты
 
 В `out/drive_inventory` создаются:

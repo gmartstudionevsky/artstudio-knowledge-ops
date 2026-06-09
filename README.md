@@ -37,6 +37,24 @@ Workflow `Drive Inventory Pipeline` выполняет этапы:
 
 См. [docs/inventory_workflow.md](docs/inventory_workflow.md).
 
+В GitHub он находится так: `Actions` -> `Drive Inventory Pipeline` -> `Run workflow`.
+Файл workflow: `.github/workflows/drive-inventory.yml`.
+Рабочий конфиг: `configs/drive_inventory.yml`.
+
+При ручном запуске должны быть видны параметры:
+
+- `scope`
+- `root_folder_id`
+- `max_files`
+- `content_inspection_max_files`
+- `content_char_limit`
+- `content_page_limit`
+- `max_download_size_mb`
+- `generate_ai_estimate`
+
+Для запуска из GitHub Actions нужен repository secret `GOOGLE_SERVICE_ACCOUNT_JSON`.
+Опционально можно добавить `GOOGLE_DELEGATED_USER`, если используется domain-wide delegation.
+
 ## Локальный запуск инвентаризации
 
 ```bash
@@ -78,6 +96,8 @@ python -m knowledge_ops.ai_analysis \
 - `GOOGLE_DELEGATED_USER`
 
 Service account должен иметь доступ на чтение к тем Drive-зонам, которые нужно инвентаризировать. Editor-доступ не требуется для текущего этапа.
+
+В GitHub Actions используется только `GOOGLE_SERVICE_ACCOUNT_JSON`; локальный вариант `GOOGLE_APPLICATION_CREDENTIALS` оставлен для запуска с машины разработчика.
 
 ## Документация
 
