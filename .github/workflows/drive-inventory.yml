@@ -33,8 +33,18 @@ on:
         description: "Maximum file download size for content inspection"
         required: true
         default: "25"
+      classification_run_mode:
+        description: "Inventory/classification execution mode"
+        required: true
+        default: "metadata_classification_only"
+        type: choice
+        options:
+          - metadata_registry
+          - metadata_classification_only
+          - bounded_content_classification
+          - full_with_content
       metadata_only_registry:
-        description: "Only build a complete metadata registry for all visible files and folders"
+        description: "Legacy override: only build a complete metadata registry"
         required: true
         default: "false"
         type: choice
@@ -63,6 +73,7 @@ env:
 jobs:
   metadata-map:
     name: "01 metadata map"
+    if: ${{ github.event.inputs.metadata_only_registry == 'true' || github.event.inputs.classification_run_mode == 'metadata_registry' || github.event.inputs.classification_run_mode == 'bounded_content_classification' || github.event.inputs.classification_run_mode == 'full_with_content' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -106,9 +117,55 @@ jobs:
           path: out/drive_inventory/01_metadata
           if-no-files-found: error
 
+  metadata-classification:
+    name: "02 metadata classification only"
+    if: ${{ github.event.inputs.metadata_only_registry != 'true' && github.event.inputs.classification_run_mode == 'metadata_classification_only' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - name: Validate service account secret
+        run: |
+          set -euo pipefail
+          test -n "$GOOGLE_SERVICE_ACCOUNT_JSON"
+          python - <<'PY'
+          import json, os
+          data = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"])
+          missing = [key for key in ["client_email", "private_key", "project_id"] if not data.get(key)]
+          if missing:
+              raise SystemExit(f"Missing service account fields: {missing}")
+          print("service account json looks valid for", data["client_email"])
+          PY
+      - name: Run V3 metadata classification without content inspection
+        run: |
+          set -euo pipefail
+          python -m knowledge_ops.drive_inventory \
+            --scope "${{ github.event.inputs.scope }}" \
+            --root-folder-id "${{ github.event.inputs.root_folder_id }}" \
+            --config "$INVENTORY_CONFIG" \
+            --out-dir out/drive_inventory/metadata_classification \
+            --mode metadata-classification \
+            --max-files 0 \
+            --skip-google-sheets true \
+            --dry-run true \
+            --safe-mode true \
+            --enable-content-inspection false \
+            --enable-ocr false \
+            --enable-excel-content-inspection false \
+            --store-content-preview false \
+            --store-sensitive-snippets false
+      - uses: actions/upload-artifact@v4
+        with:
+          name: drive-inventory-metadata-classification
+          path: out/drive_inventory/metadata_classification
+          if-no-files-found: error
+
   content-classification:
     name: "02 content classification"
-    if: ${{ github.event.inputs.metadata_only_registry != 'true' }}
+    if: ${{ github.event.inputs.metadata_only_registry != 'true' && (github.event.inputs.classification_run_mode == 'bounded_content_classification' || github.event.inputs.classification_run_mode == 'full_with_content') }}
     needs: metadata-map
     runs-on: ubuntu-latest
     steps:
@@ -152,7 +209,7 @@ jobs:
 
   final-inventory:
     name: "03 final inventory reports"
-    if: ${{ github.event.inputs.metadata_only_registry != 'true' }}
+    if: ${{ github.event.inputs.metadata_only_registry != 'true' && github.event.inputs.classification_run_mode == 'full_with_content' }}
     needs: content-classification
     runs-on: ubuntu-latest
     steps:
@@ -196,7 +253,7 @@ jobs:
 
   ai-readiness-estimate:
     name: "04 AI readiness estimate"
-    if: ${{ github.event.inputs.metadata_only_registry != 'true' && github.event.inputs.generate_ai_estimate == 'true' }}
+    if: ${{ github.event.inputs.metadata_only_registry != 'true' && github.event.inputs.classification_run_mode == 'full_with_content' && github.event.inputs.generate_ai_estimate == 'true' }}
     needs: final-inventory
     runs-on: ubuntu-latest
     steps:

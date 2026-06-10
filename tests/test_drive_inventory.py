@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 import tempfile
+import csv
 from pathlib import Path
 
 import yaml
@@ -325,6 +326,84 @@ class FakeInventoryClient:
 
     def export_text(self, file_obj, max_bytes):
         return "SOP"
+
+
+class FakeMetadataClassificationClient:
+    def __init__(self):
+        self.download_attempts = 0
+        self.export_attempts = 0
+
+    def iter_all_accessible(self, max_files=0):
+        rows = [
+            {"id": "root", "name": "Public - \u043a\u043e\u043f\u0438\u044f", "mimeType": "application/vnd.google-apps.folder"},
+            {"id": "owner", "name": "\u041e\u0442\u0434\u0435\u043b \u043f\u043e \u0440\u0430\u0431\u043e\u0442\u0435 \u0441 \u0441\u043e\u0431\u0441\u0442\u0432\u0435\u043d\u043d\u0438\u043a\u0430\u043c\u0438", "mimeType": "application/vnd.google-apps.folder", "parents": ["root"]},
+            {"id": "nevsky", "name": "2\u0421\u043e\u0432\u0435\u0442\u0441\u043a\u0430\u044f", "mimeType": "application/vnd.google-apps.folder", "parents": ["owner"]},
+            {"id": "contract", "name": "\u0414\u043e\u0433\u043e\u0432\u043e\u0440 \u0422\u041e.pdf", "mimeType": "application/pdf", "size": "12", "parents": ["nevsky"]},
+            {"id": "marketing", "name": "\u041e\u0442\u0434\u0435\u043b \u043c\u0430\u0440\u043a\u0435\u0442\u0438\u043d\u0433\u0430", "mimeType": "application/vnd.google-apps.folder", "parents": ["root"]},
+            {"id": "photo", "name": "\u0424\u043e\u0442\u043e SMM.jpg", "mimeType": "image/jpeg", "size": "12", "parents": ["marketing"]},
+            {"id": "artstudio", "name": "ARTSTUDIO", "mimeType": "application/vnd.google-apps.folder"},
+            {"id": "sop", "name": "04_Standards_SOP", "mimeType": "application/vnd.google-apps.folder", "parents": ["artstudio"]},
+            {"id": "guarded", "name": "\u0414\u043e\u0433\u043e\u0432\u043e\u0440 \u0422\u041e \u0418\u0432\u0430\u043d\u043e\u0432.pdf", "mimeType": "application/pdf", "size": "12", "parents": ["sop"]},
+            {"id": "sheet", "name": "Finance Sheet", "mimeType": SHEETS_MIME, "parents": ["root"]},
+        ]
+        return iter(rows[:max_files] if max_files else rows)
+
+    def download_bytes(self, file_obj, max_bytes):
+        self.download_attempts += 1
+        raise AssertionError("metadata-classification must not download file content")
+
+    def export_text(self, file_obj, max_bytes):
+        self.export_attempts += 1
+        raise AssertionError("metadata-classification must not export native content")
+
+
+class DriveInventoryMetadataClassificationModeTest(unittest.TestCase):
+    def test_metadata_classification_mode_classifies_without_content_or_ocr(self):
+        client = FakeMetadataClassificationClient()
+        scanner = DriveInventoryScanner(
+            client,
+            InventoryConfig(enable_content_inspection=False, enable_ocr=False, enable_excel_content_inspection=False),
+        )
+        result = scanner.scan(scope="all-accessible-drive", mode="metadata-classification")
+        by_id = {item.file_id: item for item in result.items}
+
+        self.assertGreater(result.classification_diagnostics["total_items_classified"], 0)
+        self.assertEqual(result.classification_diagnostics["content_inspection_time_ms"], 0)
+        self.assertEqual(client.download_attempts, 0)
+        self.assertEqual(client.export_attempts, 0)
+        self.assertTrue(by_id["sheet"].is_google_sheet_skipped)
+        self.assertEqual(by_id["sheet"].action_recommendation, "SKIPPED_GOOGLE_SHEET")
+        self.assertEqual(by_id["contract"].document_type_suggestion, "technical_maintenance_contract")
+        self.assertEqual(by_id["photo"].document_type_suggestion, "SMM_photo")
+        self.assertEqual(by_id["guarded"].source_origin, "auto_structured_artstudio_base")
+        self.assertEqual(by_id["guarded"].document_type_suggestion, "technical_maintenance_contract")
+        self.assertFalse(any(item.content_inspection_enabled for item in result.items))
+        self.assertFalse(any(item.content_extract_status in {"extracted_image_ocr", "extracted_pdf_ocr"} for item in result.items))
+        self.assertTrue(any(int(row["match_count"]) > 0 for row in result.rule_performance_rows))
+
+    def test_metadata_classification_reports_include_rule_matches(self):
+        client = FakeMetadataClassificationClient()
+        scanner = DriveInventoryScanner(client, InventoryConfig(enable_content_inspection=False, enable_ocr=False))
+        result = scanner.scan(scope="all-accessible-drive", mode="metadata-classification")
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp)
+            write_reports(result, output)
+            with (output / "rule_match_summary.csv").open(encoding="utf-8-sig") as fh:
+                rows = list(csv.DictReader(fh))
+            self.assertTrue(any(int(row["count"]) > 0 for row in rows))
+            self.assertTrue((output / "classification_v3_report.md").exists())
+            self.assertTrue((output / "exact_duplicates.csv").exists())
+            self.assertTrue((output / "classification_performance.json").exists())
+
+    def test_inventory_mode_remains_pure_registry(self):
+        client = FakeMetadataClassificationClient()
+        scanner = DriveInventoryScanner(client, InventoryConfig(enable_content_inspection=False, enable_ocr=False))
+        result = scanner.scan(scope="all-accessible-drive", mode="inventory")
+        self.assertEqual(result.classification_diagnostics["total_items_classified"], 0)
+        file_items = [item for item in result.items if item.object_kind == "file"]
+        self.assertTrue(file_items)
+        self.assertTrue(all(item.classification_status == "UNKNOWN" for item in file_items))
+        self.assertFalse(any(item.matched_filename_rules for item in file_items))
 
 
 class DriveInventoryContentLimitTest(unittest.TestCase):

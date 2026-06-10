@@ -19,6 +19,10 @@ from knowledge_ops.drive_inventory.duplicate_detector import mark_duplicates
 from knowledge_ops.drive_inventory.models import FOLDER_MIME, SHEETS_MIME, DriveInventoryItem
 from knowledge_ops.drive_inventory.normalizer import normalize_name, split_extension
 
+CLASSIFICATION_MODES = {"classify", "metadata-classification", "full"}
+DUPLICATE_MODES = {"duplicates", "metadata-classification", "full"}
+HASH_MODES = {"inventory", "duplicates", "full"}
+
 
 @dataclass
 class InventoryResult:
@@ -80,12 +84,12 @@ class DriveInventoryScanner:
                     result.skipped_google_sheets.append(item)
                     result.items.append(item)
                     continue
-                if mode in {"classify", "full"}:
+                if mode in CLASSIFICATION_MODES:
                     classify_item(item, self.classifier)
-                if mode in {"classify", "full"} and self.config.enable_content_inspection and item.object_kind == "folder":
+                if mode in CLASSIFICATION_MODES and self.config.enable_content_inspection and item.object_kind == "folder":
                     item.content_inspection_enabled = True
                     item.content_extract_status = "skipped_folder"
-                elif mode in {"classify", "full"} and self.config.enable_content_inspection:
+                elif mode in CLASSIFICATION_MODES and self.config.enable_content_inspection:
                     if (
                         self.config.content_inspection_max_files
                         and content_inspection_attempts >= self.config.content_inspection_max_files
@@ -98,7 +102,7 @@ class DriveInventoryScanner:
                         content_result = self.content_inspector.inspect(item, file_obj)
                         self.classifier.diagnostics.content_inspection_time_ms += (time.perf_counter() - content_started) * 1000
                         apply_content_result(item, content_result)
-                if mode in {"inventory", "duplicates", "full"}:
+                if mode in HASH_MODES:
                     self._maybe_hash(item, file_obj)
                 result.items.append(item)
             except Exception as exc:
@@ -106,7 +110,7 @@ class DriveInventoryScanner:
                 result.errors.append(error)
                 self._log(run_log_path, {"event": "error", **error})
 
-        if mode in {"duplicates", "full"}:
+        if mode in DUPLICATE_MODES:
             duplicates_started = time.perf_counter()
             mark_duplicates(result.items)
             self.classifier.diagnostics.duplicate_detection_time_ms += (time.perf_counter() - duplicates_started) * 1000
