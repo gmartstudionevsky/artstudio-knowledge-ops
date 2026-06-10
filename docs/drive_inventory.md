@@ -53,6 +53,27 @@ pip install -r requirements.txt
 python -m knowledge_ops.drive_inventory \
   --scope all-accessible-drive \
   --config configs/drive_inventory.yml \
+  --out-dir out/drive_inventory/metadata_classification \
+  --mode metadata-classification \
+  --max-files 0 \
+  --skip-google-sheets true \
+  --dry-run true \
+  --safe-mode true \
+  --enable-content-inspection false \
+  --enable-ocr false \
+  --enable-excel-content-inspection false \
+  --store-content-preview false \
+  --store-sensitive-snippets false
+```
+
+Этот режим применяет V3/V3.1 metadata rules и создает classification reports, но не читает содержимое файлов, не запускает OCR, не вызывает Cloud AI и не трогает native Google Sheets.
+
+Полный прогон с content inspection запускайте только после проверки metadata classification:
+
+```bash
+python -m knowledge_ops.drive_inventory \
+  --scope all-accessible-drive \
+  --config configs/drive_inventory.yml \
   --out-dir out/drive_inventory \
   --mode full \
   --skip-google-sheets true \
@@ -104,11 +125,21 @@ python -m knowledge_ops.drive_inventory \
 Workflow `Drive Inventory Pipeline` запускается только вручную через `workflow_dispatch`. Он выполняет инвентаризацию этапами и отдаёт результаты как artifacts:
 
 - `drive-inventory-01-metadata`
+- `drive-inventory-metadata-classification`
 - `drive-inventory-02-content-classification`
 - `drive-inventory-03-final`
 - `drive-inventory-04-ai-readiness`, если включён estimate-only AI readiness
 
 Результаты не коммитятся в репозиторий.
+
+Use `classification_run_mode`:
+
+- `metadata_registry` - pure Drive map, no classification, no content reads.
+- `metadata_classification_only` - recommended first run after V3/V3.1 rule updates; applies metadata classification and duplicate rules without content inspection/OCR/Cloud AI.
+- `bounded_content_classification` - bounded content inspection with limits.
+- `full_with_content` - final read-only inventory with content inspection and optional estimate-only AI readiness.
+
+For `metadata_classification_only`, inspect artifact `drive-inventory-metadata-classification`, especially `classification_v3_report.md`, `classification_quality_summary.md`, `rule_match_summary.csv`, `unknown_after_v2.csv`, `classification_v3_unknown.csv`, `classification_v3_conflicts.csv`, `cleanup_candidates.csv`, `exact_duplicates.csv`, `exact_duplicate_groups.csv`, and `classification_performance.json`.
 
 В интерфейсе GitHub путь такой: `Actions` -> `Drive Inventory Pipeline` -> `Run workflow`.
 Файл workflow лежит в `.github/workflows/drive-inventory.yml`, а настройки инвентаризации — в `configs/drive_inventory.yml`.

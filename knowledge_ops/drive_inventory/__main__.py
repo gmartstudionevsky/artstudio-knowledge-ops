@@ -24,7 +24,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--root-folder-id", default="")
     parser.add_argument("--config", default=DEFAULT_CONFIG_PATH)
     parser.add_argument("--out-dir", default="out/drive_inventory")
-    parser.add_argument("--mode", default="full", choices=["inventory", "duplicates", "classify", "full"])
+    parser.add_argument("--mode", default="full", choices=["inventory", "duplicates", "classify", "metadata-classification", "full"])
     parser.add_argument("--cache", default="")
     parser.add_argument("--max-files", type=int, default=0)
     parser.add_argument("--skip-google-sheets", default="true")
