@@ -9,6 +9,7 @@ from typing import List, Optional
 from knowledge_ops.drive_inventory.auth import build_read_only_drive_service
 from knowledge_ops.drive_inventory.config import as_bool, load_inventory_config
 from knowledge_ops.drive_inventory.classifier import write_rule_validation_reports
+from knowledge_ops.drive_inventory.corpus_sieve import run_corpus_sieve
 from knowledge_ops.drive_inventory.drive_client import DriveInventoryClient
 from knowledge_ops.drive_inventory.report_writer import write_reports
 from knowledge_ops.drive_inventory.scanner import DriveInventoryScanner
@@ -19,12 +20,12 @@ DEFAULT_CONFIG_PATH = "configs/drive_inventory.yml"
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Read-only ARTSTUDIO Google Drive inventory")
-    parser.add_argument("command", nargs="?", default="run", choices=["run", "validate-rules"])
+    parser.add_argument("command", nargs="?", default="run", choices=["run", "validate-rules", "corpus-sieve"])
     parser.add_argument("--scope", default="all-accessible-drive", choices=["all-accessible-drive", "root", "folder"])
     parser.add_argument("--root-folder-id", default="")
     parser.add_argument("--config", default=DEFAULT_CONFIG_PATH)
     parser.add_argument("--out-dir", default="out/drive_inventory")
-    parser.add_argument("--mode", default="full", choices=["inventory", "duplicates", "classify", "metadata-classification", "full"])
+    parser.add_argument("--mode", default="full", choices=["inventory", "duplicates", "classify", "metadata-classification", "full", "dry-run"])
     parser.add_argument("--cache", default="")
     parser.add_argument("--max-files", type=int, default=0)
     parser.add_argument("--skip-google-sheets", default="true")
@@ -45,6 +46,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--store-content-preview", default="false")
     parser.add_argument("--store-sensitive-snippets", default="false")
     parser.add_argument("--content-rules-config", default="")
+    parser.add_argument("--inventory", default="")
+    parser.add_argument("--rules", default="configs/corpus_sieve_rules.yml")
     parser.add_argument("--safe-mode", default="true")
     args = parser.parse_args(argv)
 
@@ -113,8 +116,19 @@ def main(argv: Optional[List[str]] = None) -> int:
         report = write_rule_validation_reports(config, out_dir)
         print(json.dumps(report.summary, ensure_ascii=False, indent=2))
         return 1 if report.errors else 0
+    if args.command == "corpus-sieve":
+        if args.mode != "full" and args.mode != "dry-run":
+            raise RuntimeError("Corpus sieve supports only dry-run mode.")
+        inventory_path = Path(args.inventory or "out/drive_inventory/metadata_classification/classification_v3_inventory.csv")
+        if not inventory_path.exists():
+            raise FileNotFoundError(f"Inventory CSV not found: {inventory_path}")
+        result = run_corpus_sieve(inventory_path=inventory_path, rules_path=args.rules, out_dir=out_dir)
+        print(json.dumps(result.metrics, ensure_ascii=False, indent=2))
+        return 0
     if not as_bool(args.dry_run):
         raise RuntimeError("Drive inventory is read-only. --dry-run must remain true for this first-stage contour.")
+    if args.mode == "dry-run":
+        raise RuntimeError("--mode dry-run is reserved for the offline corpus-sieve command.")
     if not config.skip_google_sheets:
         raise RuntimeError("Google Sheets must be skipped in the first-stage inventory.")
     if config.store_sensitive_snippets:
