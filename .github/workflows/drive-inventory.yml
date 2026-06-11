@@ -41,6 +41,7 @@ on:
         options:
           - metadata_registry
           - metadata_classification_only
+          - corpus_sieve
           - bounded_content_classification
           - full_with_content
       metadata_only_registry:
@@ -119,7 +120,7 @@ jobs:
 
   metadata-classification:
     name: "02 metadata classification only"
-    if: ${{ github.event.inputs.metadata_only_registry != 'true' && github.event.inputs.classification_run_mode == 'metadata_classification_only' }}
+    if: ${{ github.event.inputs.metadata_only_registry != 'true' && (github.event.inputs.classification_run_mode == 'metadata_classification_only' || github.event.inputs.classification_run_mode == 'corpus_sieve') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -163,8 +164,37 @@ jobs:
           path: out/drive_inventory/metadata_classification
           if-no-files-found: error
 
+  corpus-sieve:
+    name: "03 corpus sieve dry-run"
+    if: ${{ github.event.inputs.metadata_only_registry != 'true' && github.event.inputs.classification_run_mode == 'corpus_sieve' }}
+    needs: metadata-classification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt
+      - uses: actions/download-artifact@v4
+        with:
+          name: drive-inventory-metadata-classification
+          path: out/drive_inventory/metadata_classification
+      - name: Build Stage 1 canonical corpus dry-run
+        run: |
+          set -euo pipefail
+          python -m knowledge_ops.drive_inventory corpus-sieve \
+            --inventory out/drive_inventory/metadata_classification/classification_v3_inventory.csv \
+            --rules configs/corpus_sieve_rules.yml \
+            --out-dir out/drive_inventory/corpus_sieve \
+            --mode dry-run
+      - uses: actions/upload-artifact@v4
+        with:
+          name: drive-inventory-corpus-sieve
+          path: out/drive_inventory/corpus_sieve
+          if-no-files-found: error
+
   content-classification:
-    name: "02 content classification"
+    name: "04 content classification"
     if: ${{ github.event.inputs.metadata_only_registry != 'true' && (github.event.inputs.classification_run_mode == 'bounded_content_classification' || github.event.inputs.classification_run_mode == 'full_with_content') }}
     needs: metadata-map
     runs-on: ubuntu-latest
@@ -208,7 +238,7 @@ jobs:
           if-no-files-found: error
 
   final-inventory:
-    name: "03 final inventory reports"
+    name: "05 final inventory reports"
     if: ${{ github.event.inputs.metadata_only_registry != 'true' && github.event.inputs.classification_run_mode == 'full_with_content' }}
     needs: content-classification
     runs-on: ubuntu-latest
@@ -252,7 +282,7 @@ jobs:
           if-no-files-found: error
 
   ai-readiness-estimate:
-    name: "04 AI readiness estimate"
+    name: "06 AI readiness estimate"
     if: ${{ github.event.inputs.metadata_only_registry != 'true' && github.event.inputs.classification_run_mode == 'full_with_content' && github.event.inputs.generate_ai_estimate == 'true' }}
     needs: final-inventory
     runs-on: ubuntu-latest

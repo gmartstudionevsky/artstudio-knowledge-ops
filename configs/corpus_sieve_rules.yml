@@ -1,0 +1,72 @@
+corpus_sieve:
+  empty_file_max_bytes: 0
+  near_empty_file_max_bytes: 16
+  review_unmapped_parent: true
+
+  sensitivity_hold_values:
+    - owner_data
+    - owner_contract
+    - legal_contract
+    - financial
+    - accounting
+    - HR
+    - employee_data
+    - personal_data
+    - EGRN_sensitive
+    - signature_seal_sensitive
+    - security
+
+  legal_hold_cleanup_categories:
+    - legal_hold_review
+    - contract_archive_review
+    - owner_contract_review
+
+  hr_markers:
+    - HR
+    - employee_data
+    - payroll
+    - timesheet
+
+  system_trash_rules:
+    - rule_id: corpus_system_thumbs_db
+      filename_regex: '(?i)^Thumbs\.db$'
+      status: CORPUS_EXCLUDE_SYSTEM_TRASH
+      reason: Windows thumbnail cache.
+    - rule_id: corpus_system_ds_store
+      filename_regex: '(?i)^\.DS_Store$'
+      status: CORPUS_EXCLUDE_SYSTEM_TRASH
+      reason: macOS folder metadata.
+    - rule_id: corpus_system_desktop_ini
+      filename_regex: '(?i)^desktop\.ini$'
+      status: CORPUS_EXCLUDE_SYSTEM_TRASH
+      reason: Windows folder metadata.
+    - rule_id: corpus_temp_office_lock
+      filename_regex: '(?i)^~\$'
+      status: CORPUS_EXCLUDE_TEMP
+      reason: Temporary Office lock file.
+
+  extension_rules:
+    - rule_id: corpus_temp_extension
+      extensions: [tmp, temp, bak, wbk]
+      status: CORPUS_EXCLUDE_TEMP
+      reason: Temporary or backup file.
+    - rule_id: corpus_installer_extension
+      extensions: [exe, msi, dmg, pkg, apk, deb, rpm]
+      status: CORPUS_EXCLUDE_INSTALLER
+      reason: Installer package, not knowledge corpus content.
+    - rule_id: corpus_app_binary_extension
+      extensions: [dll, sys, bin]
+      status: CORPUS_EXCLUDE_APP_BINARY
+      reason: Application binary payload.
+    - rule_id: corpus_mail_archive_extension
+      extensions: [pst, ost, mbox]
+      status: CORPUS_EXCLUDE_MAIL_ARCHIVE
+      reason: Mailbox archive container.
+    - rule_id: corpus_archive_container_extension
+      extensions: [zip, rar, 7z, tar, gz]
+      status: CORPUS_HOLD_ARCHIVE_CONTAINER
+      reason: Archive container requires manifest inspection before content extraction.
+    - rule_id: corpus_shortcut_extension
+      extensions: [lnk]
+      status: CORPUS_EXCLUDE_UNSUPPORTED
+      reason: Shortcut-only object is not processed as content.

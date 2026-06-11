@@ -68,6 +68,18 @@ python -m knowledge_ops.drive_inventory \
 
 Этот режим применяет V3/V3.1 metadata rules и создает classification reports, но не читает содержимое файлов, не запускает OCR, не вызывает Cloud AI и не трогает native Google Sheets.
 
+Stage 1 Corpus Sieve запускается после metadata classification и работает только по готовому CSV-артефакту:
+
+```bash
+python -m knowledge_ops.drive_inventory corpus-sieve \
+  --inventory out/drive_inventory/metadata_classification/classification_v3_inventory.csv \
+  --rules configs/corpus_sieve_rules.yml \
+  --out-dir out/drive_inventory/corpus_sieve \
+  --mode dry-run
+```
+
+Этот dry-run слой не обращается к Google Drive, не удаляет, не перемещает, не распаковывает архивы, не запускает OCR и не вызывает Cloud AI. Он готовит canonical corpus для следующего content-aware этапа и пишет `corpus_sieve_inventory.csv`, `corpus_keep_canonical.csv`, `corpus_excluded.csv`, `corpus_review_queue.csv`, `dedup_exact_canonical_map.csv`, `dedup_exact_actions_dry_run.csv`, `corpus_sieve_summary_by_reason.csv`, `corpus_sieve_report.md` и `corpus_sieve_manifest.jsonl`.
+
 Полный прогон с content inspection запускайте только после проверки metadata classification:
 
 ```bash
@@ -126,6 +138,7 @@ Workflow `Drive Inventory Pipeline` запускается только вруч
 
 - `drive-inventory-01-metadata`
 - `drive-inventory-metadata-classification`
+- `drive-inventory-corpus-sieve`
 - `drive-inventory-02-content-classification`
 - `drive-inventory-03-final`
 - `drive-inventory-04-ai-readiness`, если включён estimate-only AI readiness
@@ -136,10 +149,13 @@ Use `classification_run_mode`:
 
 - `metadata_registry` - pure Drive map, no classification, no content reads.
 - `metadata_classification_only` - recommended first run after V3/V3.1 rule updates; applies metadata classification and duplicate rules without content inspection/OCR/Cloud AI.
+- `corpus_sieve` - runs metadata classification, then builds Stage 1 canonical corpus dry-run outputs from `classification_v3_inventory.csv`.
 - `bounded_content_classification` - bounded content inspection with limits.
 - `full_with_content` - final read-only inventory with content inspection and optional estimate-only AI readiness.
 
 For `metadata_classification_only`, inspect artifact `drive-inventory-metadata-classification`, especially `classification_v3_report.md`, `classification_quality_summary.md`, `rule_match_summary.csv`, `unknown_after_v2.csv`, `classification_v3_unknown.csv`, `classification_v3_conflicts.csv`, `cleanup_candidates.csv`, `exact_duplicates.csv`, `exact_duplicate_groups.csv`, and `classification_performance.json`.
+
+For `corpus_sieve`, inspect artifact `drive-inventory-corpus-sieve`, especially `corpus_sieve_report.md`, `corpus_sieve_inventory.csv`, `corpus_keep_canonical.csv`, `corpus_excluded.csv`, `corpus_review_queue.csv`, `dedup_exact_canonical_map.csv`, `dedup_exact_actions_dry_run.csv`, `corpus_sieve_summary_by_reason.csv`, `corpus_sieve_manifest.jsonl`, and `corpus_sieve_metrics.json`.
 
 В интерфейсе GitHub путь такой: `Actions` -> `Drive Inventory Pipeline` -> `Run workflow`.
 Файл workflow лежит в `.github/workflows/drive-inventory.yml`, а настройки инвентаризации — в `configs/drive_inventory.yml`.

@@ -23,6 +23,7 @@
 - `configs/drive_classification_taxonomy.yml` — Taxonomy V2: статусы, объекты, подразделения, семейства документов и cleanup-категории.
 - `configs/drive_path_rules.yml`, `configs/drive_filename_rules.yml`, `configs/drive_extension_rules.yml`, `configs/drive_sensitivity_rules.yml`, `configs/drive_media_rules.yml`, `configs/drive_cleanup_rules.yml` — первичная metadata-only классификация по пути, имени, формату, чувствительности, медиа и cleanup-сигналам.
 - `configs/drive_content_rules.yml` — правила content inspection.
+- `configs/corpus_sieve_rules.yml` — Stage 1 rules for exact duplicate suppression, system trash exclusion, archive holds and canonical corpus dry-run.
 - `configs/ai_analysis_pricing.yml` — оценочные цены Cloud AI.
 - `configs/ai_analysis_routing.yml` — сценарии, маршрутизация и budget guards.
 - `.github/workflows/drive-inventory.yml` — последовательный workflow инвентаризации.
@@ -36,6 +37,7 @@ Use `classification_run_mode` in `Actions` -> `Drive Inventory Pipeline` -> `Run
 
 - `metadata_registry` - builds only the complete Drive metadata registry. It uses `--mode inventory`, does not apply V3/V3.1 classification, does not read file content, and produces `drive-inventory-01-metadata`.
 - `metadata_classification_only` - recommended first run after V3/V3.1 rule changes. It builds the full registry and applies path/filename/extension/sensitivity/media/cleanup/lifecycle/source-origin/duplicate rules with `--mode metadata-classification`, `--enable-content-inspection false`, `--enable-ocr false`, no Cloud AI, and produces `drive-inventory-metadata-classification`.
+- `corpus_sieve` - runs `metadata_classification_only` first, then builds Stage 1 canonical corpus artifacts from `classification_v3_inventory.csv` without touching Drive. It produces `drive-inventory-corpus-sieve`.
 - `bounded_content_classification` - runs the existing bounded content inspection stage with limits. Use it only after reviewing metadata classification results.
 - `full_with_content` - runs the final read-only inventory with content inspection and optional estimate-only AI readiness. Use it after `metadata_classification_only` looks sane.
 
@@ -44,9 +46,11 @@ Use `classification_run_mode` in `Actions` -> `Drive Inventory Pipeline` -> `Run
 Workflow `Drive Inventory Pipeline` выполняет этапы:
 
 1. `01 metadata map` — быстрый metadata-only реестр без скачивания содержимого.
-2. `02 content classification` — ограниченный content inspection и классификация по правилам.
-3. `03 final inventory reports` — итоговые отчеты, дубли, sensitivity review, Excel.
-4. `04 AI readiness estimate` — estimate-only расчет пригодности и стоимости будущего Cloud AI-анализа.
+2. `02 metadata classification only` — metadata-классификация без content/OCR/Cloud AI.
+3. `03 corpus sieve dry-run` — Stage 1 отсев exact-дублей, system trash, installers, archive-hold и review queue по готовому CSV.
+4. `02 content classification` — ограниченный content inspection и классификация по правилам.
+5. `03 final inventory reports` — итоговые отчеты, дубли, sensitivity review, Excel.
+6. `04 AI readiness estimate` — estimate-only расчет пригодности и стоимости будущего Cloud AI-анализа.
 
 См. [docs/inventory_workflow.md](docs/inventory_workflow.md).
 
@@ -63,6 +67,7 @@ Workflow `Drive Inventory Pipeline` выполняет этапы:
 - `content_char_limit`
 - `content_page_limit`
 - `max_download_size_mb`
+- `classification_run_mode`
 - `metadata_only_registry`
 - `enable_ocr`
 - `generate_ai_estimate`
