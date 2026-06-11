@@ -28,6 +28,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--mode", default="full", choices=["inventory", "duplicates", "classify", "metadata-classification", "full", "dry-run"])
     parser.add_argument("--cache", default="")
     parser.add_argument("--max-files", type=int, default=0)
+    parser.add_argument("--max-runtime-minutes", type=float, default=0)
     parser.add_argument("--skip-google-sheets", default="true")
     parser.add_argument("--dry-run", default="true")
     parser.add_argument("--resume", action="store_true")
@@ -144,6 +145,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         root_folder_id=args.root_folder_id or config.root_folder_id or "",
         max_files=max(0, args.max_files),
         run_log_path=run_log,
+        max_runtime_seconds=max(0, int(args.max_runtime_minutes * 60)),
     )
     write_reports(result, out_dir)
     summary = {

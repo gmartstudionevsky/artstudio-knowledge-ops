@@ -56,9 +56,19 @@ class DriveInventoryScanner:
             rule_engine=ContentRuleEngine.from_file(config.content_rules_config),
         )
 
-    def scan(self, scope: str, mode: str, root_folder_id: str = "", max_files: int = 0, run_log_path: Path | None = None) -> InventoryResult:
+    def scan(
+        self,
+        scope: str,
+        mode: str,
+        root_folder_id: str = "",
+        max_files: int = 0,
+        run_log_path: Path | None = None,
+        max_runtime_seconds: int = 0,
+    ) -> InventoryResult:
         result = InventoryResult(items=[], skipped_google_sheets=[], scope=scope, mode=mode)
         raw_files: List[Dict[str, Any]] = []
+        started = time.monotonic()
+        stopped_by_runtime_limit = False
         iterator = (
             self.client.iter_folder_tree(root_folder_id, max_files=max_files)
             if scope in {"root", "folder"} and root_folder_id
@@ -67,10 +77,26 @@ class DriveInventoryScanner:
         for file_obj in iterator:
             raw_files.append(file_obj)
             self._log(run_log_path, {"event": "listed", "file_id": file_obj.get("id"), "name": file_obj.get("name")})
+            if max_runtime_seconds and time.monotonic() - started >= max_runtime_seconds:
+                stopped_by_runtime_limit = True
+                self._log(
+                    run_log_path,
+                    {
+                        "event": "runtime_limit_reached",
+                        "phase": "listing",
+                        "listed_count": len(raw_files),
+                        "max_runtime_seconds": max_runtime_seconds,
+                    },
+                )
+                break
 
         if getattr(self.client, "incomplete_search_detected", False):
             result.limitations.append(
                 "Google Drive API returned incompleteSearch=true for at least one page; rerun with a narrower root or drive scope before treating the inventory as complete."
+            )
+        if stopped_by_runtime_limit:
+            result.limitations.append(
+                f"Scan stopped after reaching max_runtime_seconds={max_runtime_seconds}; reports are partial and should not be treated as a complete Drive inventory."
             )
         path_map = build_paths(raw_files)
         content_inspection_attempts = 0

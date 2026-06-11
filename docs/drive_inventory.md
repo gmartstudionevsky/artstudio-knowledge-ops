@@ -56,6 +56,7 @@ python -m knowledge_ops.drive_inventory \
   --out-dir out/drive_inventory/metadata_classification \
   --mode metadata-classification \
   --max-files 0 \
+  --max-runtime-minutes 18 \
   --skip-google-sheets true \
   --dry-run true \
   --safe-mode true \
@@ -66,7 +67,7 @@ python -m knowledge_ops.drive_inventory \
   --store-sensitive-snippets false
 ```
 
-Этот режим применяет V3/V3.1 metadata rules и создает classification reports, но не читает содержимое файлов, не запускает OCR, не вызывает Cloud AI и не трогает native Google Sheets.
+Этот режим применяет V3/V3.1 metadata rules и создает classification reports, но не читает содержимое файлов, не запускает OCR, не вызывает Cloud AI и не трогает native Google Sheets. `--max-runtime-minutes 18` нужен для длинных GitHub Actions запусков: сканер штатно остановится и загрузит partial artifact до внешней отмены runner. Для локального бесконечного прогона можно поставить `0`.
 
 Stage 1 Corpus Sieve запускается после metadata classification и работает только по готовому CSV-артефакту:
 
@@ -148,7 +149,7 @@ Workflow `Drive Inventory Pipeline` запускается только вруч
 Use `classification_run_mode`:
 
 - `metadata_registry` - pure Drive map, no classification, no content reads.
-- `metadata_classification_only` - recommended first run after V3/V3.1 rule updates; applies metadata classification and duplicate rules without content inspection/OCR/Cloud AI.
+- `metadata_classification_only` - recommended first run after V3/V3.1 rule updates; applies metadata classification and duplicate rules without content inspection/OCR/Cloud AI. It respects workflow `max_files`; set `max_files=0` for a full scan. `metadata_max_runtime_minutes` controls graceful partial-artifact stop before runner cancellation; `0` disables that guard.
 - `corpus_sieve` - runs metadata classification, then builds Stage 1 canonical corpus dry-run outputs from `classification_v3_inventory.csv`.
 - `bounded_content_classification` - bounded content inspection with limits.
 - `full_with_content` - final read-only inventory with content inspection and optional estimate-only AI readiness.

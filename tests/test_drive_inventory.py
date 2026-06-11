@@ -405,6 +405,13 @@ class DriveInventoryMetadataClassificationModeTest(unittest.TestCase):
         self.assertTrue(all(item.classification_status == "UNKNOWN" for item in file_items))
         self.assertFalse(any(item.matched_filename_rules for item in file_items))
 
+    def test_runtime_limit_produces_partial_inventory(self):
+        client = FakeMetadataClassificationClient()
+        scanner = DriveInventoryScanner(client, InventoryConfig(enable_content_inspection=False, enable_ocr=False))
+        result = scanner.scan(scope="all-accessible-drive", mode="metadata-classification", max_runtime_seconds=0.000001)
+        self.assertLess(len(result.items), 10)
+        self.assertTrue(any("max_runtime_seconds" in limitation for limitation in result.limitations))
+
 
 class DriveInventoryContentLimitTest(unittest.TestCase):
     def test_content_inspection_limit_marks_remaining_files(self):

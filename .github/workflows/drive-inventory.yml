@@ -17,6 +17,10 @@ on:
         description: "Maximum files to scan in each inventory stage; 0 means no limit"
         required: true
         default: "500"
+      metadata_max_runtime_minutes:
+        description: "Gracefully stop metadata listing before runner cancellation; 0 disables this guard"
+        required: true
+        default: "18"
       content_inspection_max_files:
         description: "Maximum files to attempt content inspection; 0 means no limit"
         required: true
@@ -108,6 +112,7 @@ jobs:
             --out-dir out/drive_inventory/01_metadata \
             --mode inventory \
             --max-files "$MAX_FILES" \
+            --max-runtime-minutes "${{ github.event.inputs.metadata_max_runtime_minutes }}" \
             --skip-google-sheets true \
             --dry-run true \
             --safe-mode true \
@@ -143,13 +148,15 @@ jobs:
       - name: Run V3 metadata classification without content inspection
         run: |
           set -euo pipefail
+          MAX_FILES="${{ github.event.inputs.max_files }}"
           python -m knowledge_ops.drive_inventory \
             --scope "${{ github.event.inputs.scope }}" \
             --root-folder-id "${{ github.event.inputs.root_folder_id }}" \
             --config "$INVENTORY_CONFIG" \
             --out-dir out/drive_inventory/metadata_classification \
             --mode metadata-classification \
-            --max-files 0 \
+            --max-files "$MAX_FILES" \
+            --max-runtime-minutes "${{ github.event.inputs.metadata_max_runtime_minutes }}" \
             --skip-google-sheets true \
             --dry-run true \
             --safe-mode true \
