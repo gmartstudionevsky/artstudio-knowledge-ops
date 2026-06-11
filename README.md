@@ -36,7 +36,7 @@
 Use `classification_run_mode` in `Actions` -> `Drive Inventory Pipeline` -> `Run workflow`:
 
 - `metadata_registry` - builds only the complete Drive metadata registry. It uses `--mode inventory`, does not apply V3/V3.1 classification, does not read file content, and produces `drive-inventory-01-metadata`.
-- `metadata_classification_only` - recommended first run after V3/V3.1 rule changes. It builds the full registry and applies path/filename/extension/sensitivity/media/cleanup/lifecycle/source-origin/duplicate rules with `--mode metadata-classification`, `--enable-content-inspection false`, `--enable-ocr false`, no Cloud AI, and produces `drive-inventory-metadata-classification`.
+- `metadata_classification_only` - recommended first run after V3/V3.1 rule changes. It applies path/filename/extension/sensitivity/media/cleanup/lifecycle/source-origin/duplicate rules with `--mode metadata-classification`, respects the workflow `max_files` input, keeps `--enable-content-inspection false`, `--enable-ocr false`, no Cloud AI, and produces `drive-inventory-metadata-classification`. Set `max_files=0` for a full scan; keep `metadata_max_runtime_minutes` enabled if you want partial artifacts instead of a runner cancellation.
 - `corpus_sieve` - runs `metadata_classification_only` first, then builds Stage 1 canonical corpus artifacts from `classification_v3_inventory.csv` without touching Drive. It produces `drive-inventory-corpus-sieve`.
 - `bounded_content_classification` - runs the existing bounded content inspection stage with limits. Use it only after reviewing metadata classification results.
 - `full_with_content` - runs the final read-only inventory with content inspection and optional estimate-only AI readiness. Use it after `metadata_classification_only` looks sane.
@@ -63,6 +63,7 @@ Workflow `Drive Inventory Pipeline` выполняет этапы:
 - `scope`
 - `root_folder_id`
 - `max_files`
+- `metadata_max_runtime_minutes`
 - `content_inspection_max_files`
 - `content_char_limit`
 - `content_page_limit`
